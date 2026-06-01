@@ -1,0 +1,127 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum EquipmentType {
+  MOTOR
+  COMPRESSOR
+  PUMP
+  CONVEYOR
+  PANEL
+}
+
+enum Criticality {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum EquipmentStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum MaintenanceStatus {
+  SCHEDULED
+  DONE
+}
+
+enum UserRole {
+  ADMIN
+  USER
+}
+
+model User {
+  id           String    @id @default(uuid())
+  email        String    @unique
+  password     String
+  name         String
+  role         UserRole  @default(USER)
+  refreshToken String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
+
+  @@index([email])
+  @@index([deletedAt])
+  @@map("users")
+}
+
+model Equipment {
+  id          String          @id @default(uuid())
+  name        String
+  type        EquipmentType
+  location    String
+  criticality Criticality
+  status      EquipmentStatus @default(ACTIVE)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  deletedAt   DateTime?
+
+  maintenances Maintenance[]
+
+  @@index([type])
+  @@index([status])
+  @@index([criticality])
+  @@index([deletedAt])
+  @@index([type, status])
+  @@map("equipments")
+}
+
+model Maintenance {
+  id           String            @id @default(uuid())
+  equipmentId  String
+  dueDate      DateTime
+  concludedAt  DateTime?
+  status       MaintenanceStatus @default(SCHEDULED)
+  checklist    Json?
+  observations String?
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+  deletedAt    DateTime?
+
+  equipment Equipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+
+  @@index([equipmentId])
+  @@index([status])
+  @@index([dueDate])
+  @@index([status, dueDate])
+  @@index([equipmentId, status])
+  @@index([deletedAt])
+  @@map("maintenances")
+}
+
+model FrequencySettings {
+  id            String        @id @default(uuid())
+  equipmentType EquipmentType @unique
+  frequencyDays Int
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@map("frequency_settings")
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String?
+  action    String
+  entity    String
+  entityId  String?
+  oldValue  Json?
+  newValue  Json?
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([entity])
+  @@index([action])
+  @@index([createdAt])
+  @@index([entity, action])
+  @@map("audit_logs")
+}

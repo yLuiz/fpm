@@ -1,0 +1,81 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: fpm-postgres
+    environment:
+      POSTGRES_USER: fpm_user
+      POSTGRES_PASSWORD: fpm_password
+      POSTGRES_DB: fpm_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fpm_user -d fpm_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  postgres-backup:
+    image: prodrigestivill/postgres-backup-local
+    container_name: fpm-postgres-backup
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_DB: fpm_db
+      POSTGRES_USER: fpm_user
+      POSTGRES_PASSWORD: fpm_password
+      SCHEDULE: "@daily"
+      BACKUP_KEEP_DAYS: 7
+      BACKUP_KEEP_WEEKS: 4
+      BACKUP_KEEP_MONTHS: 6
+      HEALTHCHECK_PORT: 8080
+    volumes:
+      - ./backups:/backups
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: fpm-backend
+    environment:
+      DATABASE_URL: postgresql://fpm_user:fpm_password@postgres:5432/fpm_db?schema=public
+      JWT_SECRET: fpm-super-secret-jwt-key-2024-change-in-production
+      JWT_REFRESH_SECRET: fpm-refresh-secret-jwt-key-2024-change-in-production
+      JWT_EXPIRES_IN: 15m
+      PORT: 3001
+    ports:
+      - "3001:3001"
+    volumes:
+      - ./backend/logs:/app/logs
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3001/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: fpm-frontend
+    environment:
+      VITE_API_URL: http://localhost:3001
+    ports:
+      - "5173:5173"
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
