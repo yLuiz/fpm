@@ -81,10 +81,31 @@ export default function Login() {
             </button>
           </form>
 
-          <div className="mt-6 text-center text-sm text-gray-500">
-            <p>Usuário de teste:</p>
-            <p>Email: admin@fpm.com</p>
-            <p>Senha: admin123</p>
+          <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+            <p className="text-sm font-medium text-gray-700 mb-3">Usuários de teste:</p>
+            <div className="space-y-2 text-sm text-gray-600">
+              <div className="flex justify-between items-center p-2 bg-white rounded border border-gray-200">
+                <div>
+                  <p className="font-medium text-gray-800">Administrador</p>
+                  <p className="text-xs">admin@fpm.com / admin123</p>
+                </div>
+                <span className="px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded">ADMIN</span>
+              </div>
+              <div className="flex justify-between items-center p-2 bg-white rounded border border-gray-200">
+                <div>
+                  <p className="font-medium text-gray-800">Usuário Padrão</p>
+                  <p className="text-xs">user@fpm.com / user123</p>
+                </div>
+                <span className="px-2 py-1 text-xs bg-gray-100 text-gray-800 rounded">USER</span>
+              </div>
+              <div className="flex justify-between items-center p-2 bg-white rounded border border-gray-200">
+                <div>
+                  <p className="font-medium text-gray-800">{"João Silva"}</p>
+                  <p className="text-xs">joao@fpm.com / 123456</p>
+                </div>
+                <span className="px-2 py-1 text-xs bg-gray-100 text-gray-800 rounded">USER</span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
