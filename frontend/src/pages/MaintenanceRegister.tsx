@@ -3,6 +3,24 @@ import { useNavigate, useParams, Link } from 'react-router-dom'
 import { maintenanceApi } from '../services/api'
 import type { Maintenance, CompleteMaintenanceDto } from '../types'
 import { EQUIPMENT_TYPE_LABELS } from '../types'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Separator } from '@/components/ui/separator'
+import {
+  ArrowLeft,
+  AlertCircle,
+  Loader2,
+  CheckCircle,
+  Wrench,
+  MapPin,
+  Calendar,
+  ClipboardList,
+} from 'lucide-react'
 
 function formatDate(dateString: string) {
   return new Date(dateString).toLocaleDateString('pt-BR')
@@ -15,6 +33,42 @@ function formatDateTimeLocal(date: Date) {
   const hours = String(date.getHours()).padStart(2, '0')
   const minutes = String(date.getMinutes()).padStart(2, '0')
   return `${year}-${month}-${day}T${hours}:${minutes}`
+}
+
+function FormSkeleton() {
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center gap-4">
+        <Skeleton className="h-8 w-8" />
+        <Skeleton className="h-8 w-48" />
+      </div>
+      <div className="grid gap-6 lg:grid-cols-3">
+        <Card>
+          <CardHeader>
+            <Skeleton className="h-5 w-32" />
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="space-y-2">
+                <Skeleton className="h-4 w-20" />
+                <Skeleton className="h-4 w-32" />
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <Skeleton className="h-5 w-40" />
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <Skeleton key={i} className="h-6 w-full" />
+            ))}
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  )
 }
 
 export default function MaintenanceRegister() {
@@ -48,16 +102,18 @@ export default function MaintenanceRegister() {
       }
     } catch (error) {
       console.error('Error loading maintenance:', error)
-      setError('Erro ao carregar manutenção')
+      setError('Erro ao carregar manutencao')
     } finally {
       setLoading(false)
     }
   }
 
-  const handleChecklistChange = (item: string) => {
-    setSelectedItems((prev) =>
-      prev.includes(item) ? prev.filter((i) => i !== item) : [...prev, item]
-    )
+  const handleChecklistChange = (item: string, checked: boolean) => {
+    if (checked) {
+      setSelectedItems((prev) => [...prev, item])
+    } else {
+      setSelectedItems((prev) => prev.filter((i) => i !== item))
+    }
   }
 
   const handleSelectAll = () => {
@@ -90,167 +146,202 @@ export default function MaintenanceRegister() {
       navigate(`/equipment/${maintenance?.equipmentId}`)
     } catch (error) {
       console.error('Error completing maintenance:', error)
-      setError('Erro ao registrar manutenção')
+      setError('Erro ao registrar manutencao')
     } finally {
       setSaving(false)
     }
   }
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
-      </div>
-    )
+    return <FormSkeleton />
   }
 
   if (!maintenance) {
     return (
-      <div className="text-center py-8">
-        <p className="text-gray-500">Manutenção não encontrada</p>
-        <Link to="/" className="text-primary-600 hover:text-primary-800 mt-2 inline-block">
-          Voltar para Dashboard
-        </Link>
+      <div className="flex flex-col items-center justify-center py-12 text-center">
+        <ClipboardList className="size-12 text-muted-foreground/50 mb-4" />
+        <p className="text-muted-foreground mb-4">Manutencao nao encontrada</p>
+        <Button variant="outline" asChild>
+          <Link to="/">
+            <ArrowLeft data-icon="inline-start" />
+            Voltar para Dashboard
+          </Link>
+        </Button>
       </div>
     )
   }
 
   if (maintenance.status === 'DONE') {
     return (
-      <div className="text-center py-8">
-        <p className="text-gray-500">Esta manutenção já foi concluída</p>
-        <Link
-          to={`/equipment/${maintenance.equipmentId}`}
-          className="text-primary-600 hover:text-primary-800 mt-2 inline-block"
-        >
-          Ver equipamento
-        </Link>
+      <div className="flex flex-col items-center justify-center py-12 text-center">
+        <CheckCircle className="size-12 text-emerald-500/50 mb-4" />
+        <p className="text-muted-foreground mb-4">Esta manutencao ja foi concluida</p>
+        <Button variant="outline" asChild>
+          <Link to={`/equipment/${maintenance.equipmentId}`}>
+            <ArrowLeft data-icon="inline-start" />
+            Ver equipamento
+          </Link>
+        </Button>
       </div>
     )
   }
 
   return (
-    <div>
-      <div className="mb-6">
-        <Link
-          to={`/equipment/${maintenance.equipmentId}`}
-          className="text-sm text-gray-500 hover:text-gray-700 mb-2 inline-block"
-        >
-          &larr; Voltar para equipamento
-        </Link>
-        <h1 className="text-2xl font-bold text-gray-900">Registrar Manutenção</h1>
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="space-y-1">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Button variant="ghost" size="sm" className="-ml-2" asChild>
+            <Link to={`/equipment/${maintenance.equipmentId}`}>
+              <ArrowLeft data-icon="inline-start" />
+              Voltar para equipamento
+            </Link>
+          </Button>
+        </div>
+        <h1 className="text-2xl font-bold tracking-tight">Registrar Manutencao</h1>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="card lg:col-span-1">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Informações</h2>
-          <dl className="space-y-3">
+      <div className="grid gap-6 lg:grid-cols-3">
+        {/* Equipment Info */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Wrench className="size-4" />
+              Informacoes
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
             <div>
-              <dt className="text-sm font-medium text-gray-500">Equipamento</dt>
-              <dd className="text-sm text-gray-900">{maintenance.equipment?.name}</dd>
+              <p className="text-sm font-medium text-muted-foreground">Equipamento</p>
+              <p className="font-medium">{maintenance.equipment?.name}</p>
             </div>
+            <Separator />
             <div>
-              <dt className="text-sm font-medium text-gray-500">Tipo</dt>
-              <dd className="text-sm text-gray-900">
+              <p className="text-sm font-medium text-muted-foreground">Tipo</p>
+              <p className="font-medium">
                 {EQUIPMENT_TYPE_LABELS[maintenance.equipment?.type ?? 'MOTOR']}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-sm font-medium text-gray-500">Local</dt>
-              <dd className="text-sm text-gray-900">{maintenance.equipment?.location}</dd>
-            </div>
-            <div>
-              <dt className="text-sm font-medium text-gray-500">Data Prevista</dt>
-              <dd className="text-sm text-gray-900">{formatDate(maintenance.dueDate)}</dd>
-            </div>
-          </dl>
-        </div>
-
-        <div className="card lg:col-span-2">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Registro de Manutenção</h2>
-
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {error && (
-              <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm">
-                {error}
-              </div>
-            )}
-
-            <div>
-              <div className="flex justify-between items-center mb-3">
-                <label className="block text-sm font-medium text-gray-700">
-                  Checklist *
-                </label>
-                <button
-                  type="button"
-                  onClick={handleSelectAll}
-                  className="text-sm text-primary-600 hover:text-primary-800"
-                >
-                  {selectedItems.length === checklistItems.length
-                    ? 'Desmarcar todos'
-                    : 'Marcar todos'}
-                </button>
-              </div>
-              <div className="space-y-2 bg-gray-50 p-4 rounded-lg">
-                {checklistItems.map((item) => (
-                  <label key={item} className="flex items-center gap-3 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={selectedItems.includes(item)}
-                      onChange={() => handleChecklistChange(item)}
-                      className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
-                    />
-                    <span className="text-sm text-gray-700">{item}</span>
-                  </label>
-                ))}
-              </div>
-              <p className="text-xs text-gray-500 mt-2">
-                {selectedItems.length} de {checklistItems.length} itens selecionados
               </p>
             </div>
-
-            <div>
-              <label
-                htmlFor="concludedAt"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
-                Data/Hora da Conclusão
-              </label>
-              <input
-                id="concludedAt"
-                type="datetime-local"
-                value={concludedAt}
-                onChange={(e) => setConcludedAt(e.target.value)}
-                className="input-field"
-              />
+            <Separator />
+            <div className="flex items-start gap-2">
+              <MapPin className="size-4 text-muted-foreground mt-0.5" />
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Local</p>
+                <p className="font-medium">{maintenance.equipment?.location}</p>
+              </div>
             </div>
-
-            <div>
-              <label
-                htmlFor="observations"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
-                Observações
-              </label>
-              <textarea
-                id="observations"
-                value={observations}
-                onChange={(e) => setObservations(e.target.value)}
-                className="input-field min-h-[100px]"
-                placeholder="Observações adicionais sobre a manutenção..."
-              />
+            <Separator />
+            <div className="flex items-start gap-2">
+              <Calendar className="size-4 text-muted-foreground mt-0.5" />
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Data Prevista</p>
+                <p className="font-medium">{formatDate(maintenance.dueDate)}</p>
+              </div>
             </div>
+          </CardContent>
+        </Card>
 
-            <div className="flex gap-3 pt-4">
-              <button type="submit" disabled={saving} className="btn-primary">
-                {saving ? 'Registrando...' : 'Registrar Manutenção'}
-              </button>
-              <Link to={`/equipment/${maintenance.equipmentId}`} className="btn-secondary">
-                Cancelar
-              </Link>
-            </div>
-          </form>
-        </div>
+        {/* Registration Form */}
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <ClipboardList className="size-4" />
+              Registro de Manutencao
+            </CardTitle>
+            <CardDescription>
+              Preencha o checklist e as informacoes da manutencao realizada
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-6">
+              {error && (
+                <Alert variant="destructive">
+                  <AlertCircle className="size-4" />
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              )}
+
+              {/* Checklist */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-medium">Checklist *</label>
+                  <Button type="button" variant="ghost" size="sm" onClick={handleSelectAll}>
+                    {selectedItems.length === checklistItems.length
+                      ? 'Desmarcar todos'
+                      : 'Marcar todos'}
+                  </Button>
+                </div>
+                <div className="rounded-lg border bg-muted/50 p-4 space-y-3">
+                  {checklistItems.map((item) => (
+                    <div key={item} className="flex items-center space-x-3">
+                      <Checkbox
+                        id={item}
+                        checked={selectedItems.includes(item)}
+                        onCheckedChange={(checked) => handleChecklistChange(item, checked as boolean)}
+                      />
+                      <label
+                        htmlFor={item}
+                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                      >
+                        {item}
+                      </label>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {selectedItems.length} de {checklistItems.length} itens selecionados
+                </p>
+              </div>
+
+              {/* Date/Time */}
+              <div className="space-y-2">
+                <label htmlFor="concludedAt" className="text-sm font-medium">
+                  Data/Hora da Conclusao
+                </label>
+                <Input
+                  id="concludedAt"
+                  type="datetime-local"
+                  value={concludedAt}
+                  onChange={(e) => setConcludedAt(e.target.value)}
+                />
+              </div>
+
+              {/* Observations */}
+              <div className="space-y-2">
+                <label htmlFor="observations" className="text-sm font-medium">
+                  Observacoes
+                </label>
+                <Textarea
+                  id="observations"
+                  value={observations}
+                  onChange={(e) => setObservations(e.target.value)}
+                  placeholder="Observacoes adicionais sobre a manutencao..."
+                  rows={4}
+                />
+              </div>
+
+              {/* Actions */}
+              <div className="flex gap-3 pt-4">
+                <Button type="submit" disabled={saving}>
+                  {saving ? (
+                    <>
+                      <Loader2 className="mr-2 size-4 animate-spin" />
+                      Registrando...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle data-icon="inline-start" />
+                      Registrar Manutencao
+                    </>
+                  )}
+                </Button>
+                <Button variant="outline" type="button" asChild>
+                  <Link to={`/equipment/${maintenance.equipmentId}`}>Cancelar</Link>
+                </Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
       </div>
     </div>
   )

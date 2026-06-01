@@ -3,11 +3,55 @@ import { Link } from 'react-router-dom'
 import { equipmentApi } from '../services/api'
 import type { Equipment } from '../types'
 import { EQUIPMENT_TYPE_LABELS, CRITICALITY_LABELS, STATUS_LABELS } from '../types'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Skeleton } from '@/components/ui/skeleton'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { Plus, MoreHorizontal, Eye, Pencil, Power, Wrench } from 'lucide-react'
+
+function TableSkeleton() {
+  return (
+    <div className="space-y-3">
+      {[1, 2, 3, 4, 5].map((i) => (
+        <div key={i} className="flex items-center gap-4 py-3">
+          <Skeleton className="h-4 w-32" />
+          <Skeleton className="h-4 w-24" />
+          <Skeleton className="h-4 w-28" />
+          <Skeleton className="h-6 w-16 rounded-full" />
+          <Skeleton className="h-6 w-16 rounded-full" />
+          <Skeleton className="h-8 w-8 rounded-md ml-auto" />
+        </div>
+      ))}
+    </div>
+  )
+}
 
 export default function EquipmentList() {
   const [equipment, setEquipment] = useState<Equipment[]>([])
   const [loading, setLoading] = useState(true)
-  const [filter, setFilter] = useState<string>('')
+  const [filter, setFilter] = useState<string>('all')
 
   useEffect(() => {
     loadEquipment()
@@ -15,7 +59,7 @@ export default function EquipmentList() {
 
   const loadEquipment = async () => {
     try {
-      const data = await equipmentApi.getAll(filter || undefined)
+      const data = await equipmentApi.getAll(filter === 'all' ? undefined : filter)
       setEquipment(data)
     } catch (error) {
       console.error('Error loading equipment:', error)
@@ -33,145 +77,147 @@ export default function EquipmentList() {
     }
   }
 
-  const getCriticalityClass = (criticality: string) => {
+  const getCriticalityVariant = (criticality: string) => {
     switch (criticality) {
       case 'HIGH':
-        return 'badge-high'
+        return 'destructive'
       case 'MEDIUM':
-        return 'badge-medium'
+        return 'secondary'
       case 'LOW':
-        return 'badge-low'
+        return 'outline'
       default:
-        return ''
+        return 'secondary'
     }
   }
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
-      </div>
-    )
-  }
-
   return (
-    <div>
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Equipamentos</h1>
-        <Link to="/equipment/new" className="btn-primary">
-          Novo Equipamento
-        </Link>
-      </div>
-
-      <div className="card mb-6">
-        <div className="flex items-center gap-4">
-          <label className="text-sm font-medium text-gray-700">Filtrar por status:</label>
-          <select
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-            className="input-field w-auto"
-          >
-            <option value="">Todos</option>
-            <option value="ACTIVE">Ativos</option>
-            <option value="INACTIVE">Inativos</option>
-          </select>
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Equipamentos</h1>
+          <p className="text-muted-foreground">Gerencie os equipamentos do sistema</p>
         </div>
+        <Button asChild>
+          <Link to="/equipment/new">
+            <Plus data-icon="inline-start" />
+            Novo Equipamento
+          </Link>
+        </Button>
       </div>
 
-      <div className="card">
-        {equipment.length === 0 ? (
-          <p className="text-gray-500 text-center py-8">Nenhum equipamento encontrado</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead>
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Nome
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Tipo
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Local
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Criticidade
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Ações
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Wrench className="size-5" />
+                Lista de Equipamentos
+              </CardTitle>
+              <CardDescription>
+                {equipment.length} equipamento{equipment.length !== 1 ? 's' : ''} encontrado{equipment.length !== 1 ? 's' : ''}
+              </CardDescription>
+            </div>
+            <Select value={filter} onValueChange={setFilter}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Filtrar por status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                <SelectItem value="ACTIVE">Ativos</SelectItem>
+                <SelectItem value="INACTIVE">Inativos</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {loading ? (
+            <TableSkeleton />
+          ) : equipment.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <Wrench className="size-12 text-muted-foreground/50 mb-4" />
+              <p className="text-muted-foreground">Nenhum equipamento encontrado</p>
+              <Button variant="outline" className="mt-4" asChild>
+                <Link to="/equipment/new">Adicionar Equipamento</Link>
+              </Button>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Nome</TableHead>
+                  <TableHead>Tipo</TableHead>
+                  <TableHead>Local</TableHead>
+                  <TableHead>Criticidade</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="w-[50px]"></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {equipment.map((item) => (
-                  <tr key={item.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
+                  <TableRow key={item.id}>
+                    <TableCell>
                       <Link
                         to={`/equipment/${item.id}`}
-                        className="text-primary-600 hover:text-primary-800 font-medium"
+                        className="font-medium text-primary hover:underline"
                       >
                         {item.name}
                       </Link>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
                       {EQUIPMENT_TYPE_LABELS[item.type]}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
                       {item.location}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`badge ${getCriticalityClass(item.criticality)}`}>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={getCriticalityVariant(item.criticality) as "destructive" | "secondary" | "outline"}>
                         {CRITICALITY_LABELS[item.criticality]}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span
-                        className={`badge ${
-                          item.status === 'ACTIVE'
-                            ? 'bg-green-100 text-green-800'
-                            : 'bg-gray-100 text-gray-800'
-                        }`}
-                      >
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={item.status === 'ACTIVE' ? 'default' : 'secondary'}>
                         {STATUS_LABELS[item.status]}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      <div className="flex items-center gap-3">
-                        <Link
-                          to={`/equipment/${item.id}`}
-                          className="text-primary-600 hover:text-primary-800"
-                        >
-                          Ver
-                        </Link>
-                        <Link
-                          to={`/equipment/${item.id}/edit`}
-                          className="text-gray-600 hover:text-gray-800"
-                        >
-                          Editar
-                        </Link>
-                        <button
-                          onClick={() => handleToggleStatus(item.id)}
-                          className={`${
-                            item.status === 'ACTIVE'
-                              ? 'text-red-600 hover:text-red-800'
-                              : 'text-green-600 hover:text-green-800'
-                          }`}
-                        >
-                          {item.status === 'ACTIVE' ? 'Desativar' : 'Ativar'}
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon">
+                            <MoreHorizontal className="size-4" />
+                            <span className="sr-only">Acoes</span>
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem asChild>
+                            <Link to={`/equipment/${item.id}`}>
+                              <Eye className="mr-2 size-4" />
+                              Ver Detalhes
+                            </Link>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem asChild>
+                            <Link to={`/equipment/${item.id}/edit`}>
+                              <Pencil className="mr-2 size-4" />
+                              Editar
+                            </Link>
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onClick={() => handleToggleStatus(item.id)}
+                            className={item.status === 'ACTIVE' ? 'text-destructive focus:text-destructive' : 'text-emerald-600'}
+                          >
+                            <Power className="mr-2 size-4" />
+                            {item.status === 'ACTIVE' ? 'Desativar' : 'Ativar'}
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
     </div>
   )
 }

@@ -3,6 +3,34 @@ import { settingsApi } from '../services/api'
 import { useAuth } from '../contexts/AuthContext'
 import type { FrequencySetting, EquipmentType } from '../types'
 import { EQUIPMENT_TYPE_LABELS } from '../types'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Settings as SettingsIcon, AlertTriangle, Save, Loader2, Clock } from 'lucide-react'
+
+function TableSkeleton() {
+  return (
+    <div className="space-y-3">
+      {[1, 2, 3, 4, 5].map((i) => (
+        <div key={i} className="flex items-center gap-4 py-3">
+          <Skeleton className="h-4 w-32" />
+          <Skeleton className="h-10 w-24" />
+          <Skeleton className="h-8 w-16 ml-auto" />
+        </div>
+      ))}
+    </div>
+  )
+}
 
 export default function Settings() {
   const { user } = useAuth()
@@ -59,95 +87,107 @@ export default function Settings() {
     return original && editValues[type] !== original.frequencyDays
   }
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
-      </div>
-    )
-  }
-
   return (
-    <div>
-      <h1 className="text-2xl font-bold text-gray-900 mb-6">Configurações</h1>
-
-      <div className="card">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">
-          Frequência de Manutenção por Tipo
-        </h2>
-        <p className="text-sm text-gray-500 mb-6">
-          Configure a frequência em dias para cada tipo de equipamento.
-          As novas frequências serão aplicadas às próximas manutenções criadas.
-        </p>
-
-        {!isAdmin && (
-          <div className="bg-yellow-50 text-yellow-700 p-3 rounded-lg text-sm mb-6">
-            Somente administradores podem alterar as configurações.
-          </div>
-        )}
-
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead>
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Tipo de Equipamento
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Frequência (dias)
-                </th>
-                {isAdmin && (
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Ação
-                  </th>
-                )}
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {frequencies.map((freq) => (
-                <tr key={freq.equipmentType}>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="text-sm font-medium text-gray-900">
-                      {EQUIPMENT_TYPE_LABELS[freq.equipmentType]}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    {isAdmin ? (
-                      <input
-                        type="number"
-                        min="1"
-                        max="365"
-                        value={editValues[freq.equipmentType] || freq.frequencyDays}
-                        onChange={(e) =>
-                          handleChange(freq.equipmentType, parseInt(e.target.value) || 1)
-                        }
-                        className="input-field w-24"
-                      />
-                    ) : (
-                      <span className="text-sm text-gray-900">{freq.frequencyDays} dias</span>
-                    )}
-                  </td>
-                  {isAdmin && (
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <button
-                        onClick={() => handleSave(freq.equipmentType)}
-                        disabled={!hasChanged(freq.equipmentType) || saving === freq.equipmentType}
-                        className={`text-sm font-medium ${
-                          hasChanged(freq.equipmentType)
-                            ? 'text-primary-600 hover:text-primary-800'
-                            : 'text-gray-400 cursor-not-allowed'
-                        }`}
-                      >
-                        {saving === freq.equipmentType ? 'Salvando...' : 'Salvar'}
-                      </button>
-                    </td>
-                  )}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight">Configuracoes</h1>
+        <p className="text-muted-foreground">Gerencie as configuracoes do sistema</p>
       </div>
+
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <div className="rounded-full p-2 bg-primary/10">
+              <Clock className="size-4 text-primary" />
+            </div>
+            <div>
+              <CardTitle>Frequencia de Manutencao por Tipo</CardTitle>
+              <CardDescription>
+                Configure a frequencia em dias para cada tipo de equipamento
+              </CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {!isAdmin && (
+            <Alert>
+              <AlertTriangle className="size-4" />
+              <AlertDescription>
+                Somente administradores podem alterar as configuracoes.
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {loading ? (
+            <TableSkeleton />
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Tipo de Equipamento</TableHead>
+                  <TableHead className="w-[150px]">Frequencia (dias)</TableHead>
+                  {isAdmin && <TableHead className="w-[100px] text-right">Acao</TableHead>}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {frequencies.map((freq) => (
+                  <TableRow key={freq.equipmentType}>
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        <div className="rounded-full p-2 bg-muted">
+                          <SettingsIcon className="size-4 text-muted-foreground" />
+                        </div>
+                        <span className="font-medium">
+                          {EQUIPMENT_TYPE_LABELS[freq.equipmentType]}
+                        </span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      {isAdmin ? (
+                        <Input
+                          type="number"
+                          min="1"
+                          max="365"
+                          value={editValues[freq.equipmentType] || freq.frequencyDays}
+                          onChange={(e) =>
+                            handleChange(freq.equipmentType, parseInt(e.target.value) || 1)
+                          }
+                          className="w-24"
+                        />
+                      ) : (
+                        <span className="text-muted-foreground">{freq.frequencyDays} dias</span>
+                      )}
+                    </TableCell>
+                    {isAdmin && (
+                      <TableCell className="text-right">
+                        <Button
+                          variant={hasChanged(freq.equipmentType) ? 'default' : 'ghost'}
+                          size="sm"
+                          onClick={() => handleSave(freq.equipmentType)}
+                          disabled={!hasChanged(freq.equipmentType) || saving === freq.equipmentType}
+                        >
+                          {saving === freq.equipmentType ? (
+                            <Loader2 className="size-4 animate-spin" />
+                          ) : (
+                            <>
+                              <Save data-icon="inline-start" />
+                              Salvar
+                            </>
+                          )}
+                        </Button>
+                      </TableCell>
+                    )}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+
+          <p className="text-xs text-muted-foreground">
+            As novas frequencias serao aplicadas as proximas manutencoes criadas.
+          </p>
+        </CardContent>
+      </Card>
     </div>
   )
 }
