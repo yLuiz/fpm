@@ -1,8 +1,23 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams, Link } from 'react-router-dom'
+import { Loader2 } from 'lucide-react'
+import { toast } from 'sonner'
 import { equipmentApi } from '../services/api'
 import type { EquipmentType, Criticality, CreateEquipmentDto } from '../types'
 import { EQUIPMENT_TYPE_LABELS, CRITICALITY_LABELS } from '../types'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Skeleton } from '@/components/ui/skeleton'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { PageHeader } from '@/components/page-header'
 
 export default function EquipmentForm() {
   const navigate = useNavigate()
@@ -11,7 +26,6 @@ export default function EquipmentForm() {
 
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [error, setError] = useState('')
 
   const [formData, setFormData] = useState<CreateEquipmentDto>({
     name: '',
@@ -21,9 +35,8 @@ export default function EquipmentForm() {
   })
 
   useEffect(() => {
-    if (isEditing) {
-      loadEquipment()
-    }
+    if (isEditing) loadEquipment()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id])
 
   const loadEquipment = async () => {
@@ -38,7 +51,7 @@ export default function EquipmentForm() {
       })
     } catch (error) {
       console.error('Error loading equipment:', error)
-      setError('Erro ao carregar equipamento')
+      toast.error('Erro ao carregar equipamento')
     } finally {
       setLoading(false)
     }
@@ -46,143 +59,118 @@ export default function EquipmentForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setError('')
     setSaving(true)
-
     try {
       if (isEditing) {
         await equipmentApi.update(id!, formData)
+        toast.success('Equipamento atualizado')
       } else {
         await equipmentApi.create(formData)
+        toast.success('Equipamento criado')
       }
       navigate('/equipment')
     } catch (error) {
       console.error('Error saving equipment:', error)
-      setError('Erro ao salvar equipamento')
+      toast.error('Erro ao salvar equipamento')
     } finally {
       setSaving(false)
     }
   }
 
-  const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
-  ) => {
-    const { name, value } = e.target
-    setFormData((prev) => ({ ...prev, [name]: value }))
-  }
+  const update = <K extends keyof CreateEquipmentDto>(key: K, value: CreateEquipmentDto[K]) =>
+    setFormData((prev) => ({ ...prev, [key]: value }))
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+      <div className="space-y-6">
+        <Skeleton className="h-9 w-64" />
+        <Skeleton className="h-96 max-w-2xl" />
       </div>
     )
   }
 
   return (
-    <div>
-      <div className="mb-6">
-        <Link
-          to="/equipment"
-          className="text-sm text-gray-500 hover:text-gray-700 mb-2 inline-block"
-        >
-          &larr; Voltar para lista
-        </Link>
-        <h1 className="text-2xl font-bold text-gray-900">
-          {isEditing ? 'Editar Equipamento' : 'Novo Equipamento'}
-        </h1>
-      </div>
+    <>
+      <PageHeader
+        back={{ to: '/equipment', label: 'Voltar para lista' }}
+        title={isEditing ? 'Editar equipamento' : 'Novo equipamento'}
+      />
 
-      <div className="card max-w-2xl">
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {error && (
-            <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm">
-              {error}
+      <Card className="max-w-2xl">
+        <CardHeader>
+          <CardTitle>Dados do equipamento</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <div className="space-y-2">
+              <Label htmlFor="name">Nome do equipamento *</Label>
+              <Input
+                id="name"
+                value={formData.name}
+                onChange={(e) => update('name', e.target.value)}
+                placeholder="Ex: Motor Principal Linha 1"
+                required
+              />
             </div>
-          )}
 
-          <div>
-            <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
-              Nome do Equipamento *
-            </label>
-            <input
-              id="name"
-              name="name"
-              type="text"
-              value={formData.name}
-              onChange={handleChange}
-              className="input-field"
-              placeholder="Ex: Motor Principal Linha 1"
-              required
-            />
-          </div>
+            <div className="space-y-2">
+              <Label htmlFor="type">Tipo *</Label>
+              <Select value={formData.type} onValueChange={(v) => update('type', v as EquipmentType)}>
+                <SelectTrigger id="type" className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {(Object.keys(EQUIPMENT_TYPE_LABELS) as EquipmentType[]).map((type) => (
+                    <SelectItem key={type} value={type}>
+                      {EQUIPMENT_TYPE_LABELS[type]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-          <div>
-            <label htmlFor="type" className="block text-sm font-medium text-gray-700 mb-1">
-              Tipo *
-            </label>
-            <select
-              id="type"
-              name="type"
-              value={formData.type}
-              onChange={handleChange}
-              className="input-field"
-              required
-            >
-              {(Object.keys(EQUIPMENT_TYPE_LABELS) as EquipmentType[]).map((type) => (
-                <option key={type} value={type}>
-                  {EQUIPMENT_TYPE_LABELS[type]}
-                </option>
-              ))}
-            </select>
-          </div>
+            <div className="space-y-2">
+              <Label htmlFor="location">Localização *</Label>
+              <Input
+                id="location"
+                value={formData.location}
+                onChange={(e) => update('location', e.target.value)}
+                placeholder="Ex: Galpão A - Setor 1"
+                required
+              />
+            </div>
 
-          <div>
-            <label htmlFor="location" className="block text-sm font-medium text-gray-700 mb-1">
-              Localização *
-            </label>
-            <input
-              id="location"
-              name="location"
-              type="text"
-              value={formData.location}
-              onChange={handleChange}
-              className="input-field"
-              placeholder="Ex: Galpão A - Setor 1"
-              required
-            />
-          </div>
+            <div className="space-y-2">
+              <Label htmlFor="criticality">Criticidade *</Label>
+              <Select
+                value={formData.criticality}
+                onValueChange={(v) => update('criticality', v as Criticality)}
+              >
+                <SelectTrigger id="criticality" className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {(Object.keys(CRITICALITY_LABELS) as Criticality[]).map((level) => (
+                    <SelectItem key={level} value={level}>
+                      {CRITICALITY_LABELS[level]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-          <div>
-            <label htmlFor="criticality" className="block text-sm font-medium text-gray-700 mb-1">
-              Criticidade *
-            </label>
-            <select
-              id="criticality"
-              name="criticality"
-              value={formData.criticality}
-              onChange={handleChange}
-              className="input-field"
-              required
-            >
-              {(Object.keys(CRITICALITY_LABELS) as Criticality[]).map((level) => (
-                <option key={level} value={level}>
-                  {CRITICALITY_LABELS[level]}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="flex gap-3 pt-4">
-            <button type="submit" disabled={saving} className="btn-primary">
-              {saving ? 'Salvando...' : isEditing ? 'Salvar Alterações' : 'Criar Equipamento'}
-            </button>
-            <Link to="/equipment" className="btn-secondary">
-              Cancelar
-            </Link>
-          </div>
-        </form>
-      </div>
-    </div>
+            <div className="flex gap-3 pt-2">
+              <Button type="submit" disabled={saving}>
+                {saving && <Loader2 className="animate-spin" />}
+                {isEditing ? 'Salvar alterações' : 'Criar equipamento'}
+              </Button>
+              <Button asChild variant="outline" type="button">
+                <Link to="/equipment">Cancelar</Link>
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
+    </>
   )
 }

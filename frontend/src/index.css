@@ -1,58 +1,261 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "@fontsource-variable/inter";
 
-body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen,
-    Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * Design system industrial (padrão JungleRMS): tema escuro único, superfícies em
+ * degraus de cinza azulado, acento verde água, borda fina lilás e sem sombras.
+ * Os tokens semânticos do shadcn apontam para a paleta do design system.
+ */
+:root {
+  --radius: 0.625rem;
+
+  /* Superfícies (quanto mais "para frente", mais claro) */
+  --ds-bg-deep: #090909;
+  --ds-bg: #101018;
+  --ds-surface-sunken: #1d1d25;
+  --ds-tabbar: #181820;
+  --ds-surface: #252530;
+  --ds-surface-raised: #2d2d36;
+  --ds-surface-strong: #333333;
+  --ds-table-even: #3b3b42;
+  --ds-table-head: #464646;
+  --ds-table-title: #e8e54c;
+
+  /* Texto */
+  --ds-text: #ffffff;
+  --ds-text-50: #ffffff80;
+  --ds-text-soft: #d9d9d9;
+  --ds-text-label: #a3a3bc;
+  --ds-text-tab-off: #8a8a8a;
+  --ds-text-disabled: #49495f;
+  --ds-text-on-warm: #34343c;
+
+  /* Acento e interação */
+  --ds-accent: #66a197;
+  --ds-accent-50: #66a19780;
+  --ds-accent-hover: #7bb7ad;
+  --ds-accent-pressed: #3d7269cc;
+  --ds-accent-disabled: #54736d;
+  --ds-border: #6f6f90;
+  --ds-border-hover: #8d8d93;
+  --ds-border-disabled: #68686a;
+  --ds-menu-hover: #49495f;
+  --ds-mint: #91f3dc;
+  --ds-mint-hover: #c5fff1;
+  --ds-report: #ffab2e;
+  --ds-error-form: #cf2c2c;
+
+  /* Status */
+  --ds-success: #689f21;
+  --ds-success-text: #27be69;
+  --ds-danger: #a50034;
+  --ds-danger-text: #e5102e;
+  --ds-warning: #efcd07;
+  --ds-warning-text: #ffbf0f;
+  --ds-offline: #51515a;
+
+  /* Gráficos: cor fixa por indicador (ver src/lib/chart-colors.ts) */
+  --chart-1: #05c091;
+  --chart-2: #689f21;
+  --chart-3: #efcd07;
+  --chart-4: #a50034;
+  --chart-5: #699fff;
+  --chart-reference: #c0c0c1;
+
+  /* Tokens semânticos do shadcn */
+  --background: var(--ds-bg);
+  --foreground: var(--ds-text);
+  --card: var(--ds-bg);
+  --card-foreground: var(--ds-text);
+  --popover: var(--ds-surface);
+  --popover-foreground: var(--ds-text);
+  --primary: var(--ds-accent);
+  --primary-foreground: var(--ds-text);
+  --secondary: var(--ds-surface);
+  --secondary-foreground: var(--ds-text);
+  --muted: var(--ds-surface-sunken);
+  --muted-foreground: var(--ds-text-label);
+  --accent: var(--ds-accent-50);
+  --accent-foreground: var(--ds-text);
+  --destructive: var(--ds-danger);
+  --destructive-foreground: var(--ds-text);
+  --border: var(--ds-border);
+  --input: var(--ds-text-soft);
+  --ring: var(--ds-accent);
+
+  --sidebar: var(--ds-surface);
+  --sidebar-foreground: var(--ds-text);
+  --sidebar-primary: var(--ds-accent);
+  --sidebar-primary-foreground: var(--ds-text);
+  --sidebar-accent: var(--ds-menu-hover);
+  --sidebar-accent-foreground: var(--ds-text);
+  --sidebar-border: var(--ds-surface-strong);
+  --sidebar-ring: var(--ds-accent);
+
+  color-scheme: dark;
 }
 
-@layer components {
-  .btn-primary {
-    @apply bg-primary-600 text-white px-4 py-2 rounded-lg hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed;
+@theme inline {
+  --font-sans: 'Inter Variable', 'Nunito Sans', ui-sans-serif, system-ui, sans-serif;
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  /* Paleta do design system como utilitários (bg-surface, text-label, border-border-hover...) */
+  --color-bg-deep: var(--ds-bg-deep);
+  --color-surface: var(--ds-surface);
+  --color-surface-sunken: var(--ds-surface-sunken);
+  --color-surface-raised: var(--ds-surface-raised);
+  --color-surface-strong: var(--ds-surface-strong);
+  --color-tabbar: var(--ds-tabbar);
+  --color-table-even: var(--ds-table-even);
+  --color-table-head: var(--ds-table-head);
+  --color-table-title: var(--ds-table-title);
+  --color-text-soft: var(--ds-text-soft);
+  --color-label: var(--ds-text-label);
+  --color-disabled: var(--ds-text-disabled);
+  --color-on-warm: var(--ds-text-on-warm);
+  --color-accent-solid: var(--ds-accent);
+  --color-accent-hover: var(--ds-accent-hover);
+  --color-accent-pressed: var(--ds-accent-pressed);
+  --color-accent-disabled: var(--ds-accent-disabled);
+  --color-border-hover: var(--ds-border-hover);
+  --color-border-disabled: var(--ds-border-disabled);
+  --color-menu-hover: var(--ds-menu-hover);
+  --color-mint: var(--ds-mint);
+  --color-mint-hover: var(--ds-mint-hover);
+  --color-report: var(--ds-report);
+  --color-error-form: var(--ds-error-form);
+  --color-success: var(--ds-success);
+  --color-success-text: var(--ds-success-text);
+  --color-danger: var(--ds-danger);
+  --color-danger-text: var(--ds-danger-text);
+  --color-warning: var(--ds-warning);
+  --color-warning-text: var(--ds-warning-text);
+  --color-offline: var(--ds-offline);
+
+  /* Raios: 0.2vh paginador, 0.5vh controles, 1vh cards/painéis/dialogs */
+  --radius-sm: 2px;
+  --radius-md: 4px;
+  --radius-lg: 5px;
+  --radius-xl: 10px;
+  --radius-2xl: 10px;
+
+  --animate-fade-in: fade-in 0.3s ease;
+  --animate-blink: blink 1.6s ease-in-out infinite;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+  html {
+    @apply font-sans antialiased;
+  }
+  /* SemiBold é o peso padrão do app; corpo de tabela, descrições e tooltip usam Regular */
+  body {
+    @apply bg-background font-semibold text-foreground;
   }
 
-  .btn-secondary {
-    @apply bg-gray-200 text-gray-800 px-4 py-2 rounded-lg hover:bg-gray-300 transition-colors;
+  /* Tailwind v4 deixou botões com cursor padrão; tudo que é clicável volta a ter a mãozinha */
+  button:not(:disabled),
+  [role='button']:not([aria-disabled='true']),
+  [role='tab']:not([data-disabled]),
+  [role='radio']:not([data-disabled]),
+  [role='checkbox']:not([data-disabled]),
+  [role='option']:not([data-disabled]),
+  [role='menuitem']:not([data-disabled]),
+  [role='combobox']:not([data-disabled]),
+  label:has(> [role='checkbox']),
+  summary,
+  input[type='checkbox'],
+  input[type='radio'],
+  select {
+    cursor: pointer;
+  }
+  :disabled,
+  [aria-disabled='true'],
+  [data-disabled] {
+    cursor: not-allowed;
   }
 
-  .btn-danger {
-    @apply bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors;
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
   }
-
-  .input-field {
-    @apply w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent;
+  ::-webkit-scrollbar:hover {
+    width: 8px;
+    height: 8px;
   }
-
-  .card {
-    @apply bg-white rounded-lg shadow-md p-6;
+  ::-webkit-scrollbar-thumb {
+    background: #938c8f;
+    border-radius: 10px;
   }
-
-  .badge {
-    @apply px-2 py-1 text-xs font-semibold rounded-full;
+  ::-webkit-scrollbar-thumb:hover {
+    background: #938c8fbf;
   }
-
-  .badge-high {
-    @apply bg-red-100 text-red-800;
+  ::-webkit-scrollbar-track {
+    background: #323232;
+    border-radius: 10px;
   }
+}
 
-  .badge-medium {
-    @apply bg-yellow-100 text-yellow-800;
-  }
-
-  .badge-low {
-    @apply bg-green-100 text-green-800;
-  }
-
-  .badge-scheduled {
-    @apply bg-blue-100 text-blue-800;
-  }
-
-  .badge-done {
-    @apply bg-green-100 text-green-800;
-  }
-
-  .badge-overdue {
-    @apply bg-red-100 text-red-800;
+@media print {
+  html,
+  body,
+  #root {
+    height: auto;
+    background: #fff !important;
+    color: #000;
   }
 }

@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react'
 import { authApi } from '../services/api'
+import { tokenStorage } from '../lib/token-storage'
 import type { User, LoginCredentials } from '../types'
 
 interface AuthContextType {
@@ -7,7 +8,7 @@ interface AuthContextType {
   isAuthenticated: boolean
   loading: boolean
   login: (credentials: LoginCredentials) => Promise<void>
-  logout: () => void
+  logout: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -28,8 +29,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           localStorage.setItem('user', JSON.stringify(userData))
         })
         .catch(() => {
-          localStorage.removeItem('token')
-          localStorage.removeItem('user')
+          tokenStorage.clear()
           setUser(null)
         })
         .finally(() => setLoading(false))
@@ -40,14 +40,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (credentials: LoginCredentials) => {
     const response = await authApi.login(credentials)
-    localStorage.setItem('token', response.access_token)
+    tokenStorage.save(response)
     localStorage.setItem('user', JSON.stringify(response.user))
     setUser(response.user)
   }
 
-  const logout = () => {
-    localStorage.removeItem('token')
-    localStorage.removeItem('user')
+  const logout = async () => {
+    // Invalida o refresh token no backend (renovando o access token se ele já expirou);
+    // a sessão local é encerrada mesmo se a chamada falhar
+    try {
+      await authApi.logout()
+    } catch {
+      // segue com o logout local
+    }
+    tokenStorage.clear()
     setUser(null)
   }
 

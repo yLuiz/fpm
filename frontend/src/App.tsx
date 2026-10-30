@@ -1,4 +1,5 @@
-import { Routes, Route, Navigate } from 'react-router-dom'
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
+import { Loader2 } from 'lucide-react'
 import { useAuth } from './contexts/AuthContext'
 import Layout from './components/Layout'
 import Login from './pages/Login'
@@ -8,19 +9,29 @@ import EquipmentDetail from './pages/EquipmentDetail'
 import EquipmentForm from './pages/EquipmentForm'
 import MaintenanceRegister from './pages/MaintenanceRegister'
 import Settings from './pages/Settings'
+import Downtimes from './pages/Downtimes'
+import EquipmentScan from './pages/EquipmentScan'
+import EquipmentLabels from './pages/EquipmentLabels'
+import { currentPath } from './lib/redirect'
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, loading } = useAuth()
+  const location = useLocation()
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+      <div className="flex h-full items-center justify-center bg-background">
+        <Loader2 className="size-8 animate-spin text-accent-solid" />
       </div>
     )
   }
 
-  return isAuthenticated ? <>{children}</> : <Navigate to="/login" />
+  if (!isAuthenticated) {
+    // Guarda o destino (ex.: link do QR Code) para voltar após o login
+    return <Navigate to="/login" replace state={{ from: currentPath(location) }} />
+  }
+
+  return <>{children}</>
 }
 
 function App() {
@@ -38,9 +49,12 @@ function App() {
         <Route index element={<Dashboard />} />
         <Route path="equipment" element={<EquipmentList />} />
         <Route path="equipment/new" element={<EquipmentForm />} />
+        <Route path="equipment/labels" element={<EquipmentLabels />} />
+        <Route path="e/:id" element={<EquipmentScan />} />
         <Route path="equipment/:id" element={<EquipmentDetail />} />
         <Route path="equipment/:id/edit" element={<EquipmentForm />} />
         <Route path="maintenance/:id/register" element={<MaintenanceRegister />} />
+        <Route path="downtime" element={<Downtimes />} />
         <Route path="settings" element={<Settings />} />
       </Route>
     </Routes>

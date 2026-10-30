@@ -1,8 +1,23 @@
 import { useEffect, useState } from 'react'
+import { Loader2, Info } from 'lucide-react'
+import { toast } from 'sonner'
 import { settingsApi } from '../services/api'
 import { useAuth } from '../contexts/AuthContext'
 import type { FrequencySetting, EquipmentType } from '../types'
 import { EQUIPMENT_TYPE_LABELS } from '../types'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Skeleton } from '@/components/ui/skeleton'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import { PageHeader } from '@/components/page-header'
 
 export default function Settings() {
   const { user } = useAuth()
@@ -21,34 +36,29 @@ export default function Settings() {
     try {
       const data = await settingsApi.getFrequencies()
       setFrequencies(data)
-      const values: Record<string, number> = {}
-      data.forEach((f) => {
-        values[f.equipmentType] = f.frequencyDays
-      })
-      setEditValues(values)
+      setEditValues(Object.fromEntries(data.map((f) => [f.equipmentType, f.frequencyDays])))
     } catch (error) {
       console.error('Error loading frequencies:', error)
+      toast.error('Erro ao carregar configurações')
     } finally {
       setLoading(false)
     }
   }
 
-  const handleChange = (type: string, value: number) => {
-    setEditValues((prev) => ({ ...prev, [type]: value }))
-  }
-
   const handleSave = async (type: EquipmentType) => {
     const newValue = editValues[type]
     if (newValue < 1 || newValue > 365) {
+      toast.error('A frequência deve estar entre 1 e 365 dias')
       return
     }
-
     setSaving(type)
     try {
       await settingsApi.updateFrequency(type, newValue)
+      toast.success('Frequência atualizada')
       await loadFrequencies()
     } catch (error) {
       console.error('Error updating frequency:', error)
+      toast.error('Erro ao atualizar frequência')
     } finally {
       setSaving(null)
     }
@@ -59,95 +69,87 @@ export default function Settings() {
     return original && editValues[type] !== original.frequencyDays
   }
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
-      </div>
-    )
-  }
-
   return (
-    <div>
-      <h1 className="text-2xl font-bold text-gray-900 mb-6">Configurações</h1>
+    // Conteúdo estreito centralizado: título e card alinhados na mesma coluna
+    <div className="mx-auto w-full max-w-3xl space-y-4">
+      <PageHeader title="Configurações" context="Frequência de manutenção preventiva" />
 
-      <div className="card">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">
-          Frequência de Manutenção por Tipo
-        </h2>
-        <p className="text-sm text-gray-500 mb-6">
-          Configure a frequência em dias para cada tipo de equipamento.
-          As novas frequências serão aplicadas às próximas manutenções criadas.
-        </p>
+      <Card>
+        <CardHeader>
+          <CardTitle>Frequência de manutenção</CardTitle>
+          <CardDescription>
+            Configure em dias. As novas frequências valem para as próximas manutenções criadas.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {!isAdmin && (
+            <div className="flex items-center gap-2 rounded-lg border border-warning/60 bg-warning/10 px-4 py-3 text-sm text-warning-text">
+              <Info className="h-4 w-4 shrink-0" />
+              Somente administradores podem alterar as configurações.
+            </div>
+          )}
 
-        {!isAdmin && (
-          <div className="bg-yellow-50 text-yellow-700 p-3 rounded-lg text-sm mb-6">
-            Somente administradores podem alterar as configurações.
-          </div>
-        )}
-
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead>
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Tipo de Equipamento
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Frequência (dias)
-                </th>
-                {isAdmin && (
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Ação
-                  </th>
-                )}
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {frequencies.map((freq) => (
-                <tr key={freq.equipmentType}>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="text-sm font-medium text-gray-900">
-                      {EQUIPMENT_TYPE_LABELS[freq.equipmentType]}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    {isAdmin ? (
-                      <input
-                        type="number"
-                        min="1"
-                        max="365"
-                        value={editValues[freq.equipmentType] || freq.frequencyDays}
-                        onChange={(e) =>
-                          handleChange(freq.equipmentType, parseInt(e.target.value) || 1)
-                        }
-                        className="input-field w-24"
-                      />
-                    ) : (
-                      <span className="text-sm text-gray-900">{freq.frequencyDays} dias</span>
-                    )}
-                  </td>
-                  {isAdmin && (
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <button
-                        onClick={() => handleSave(freq.equipmentType)}
-                        disabled={!hasChanged(freq.equipmentType) || saving === freq.equipmentType}
-                        className={`text-sm font-medium ${
-                          hasChanged(freq.equipmentType)
-                            ? 'text-primary-600 hover:text-primary-800'
-                            : 'text-gray-400 cursor-not-allowed'
-                        }`}
-                      >
-                        {saving === freq.equipmentType ? 'Salvando...' : 'Salvar'}
-                      </button>
-                    </td>
-                  )}
-                </tr>
+          {loading ? (
+            <div className="space-y-3">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <Skeleton key={i} className="h-12 w-full" />
               ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Tipo de equipamento</TableHead>
+                  <TableHead>Frequência (dias)</TableHead>
+                  {isAdmin && <TableHead>Ação</TableHead>}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {frequencies.map((freq) => (
+                  <TableRow key={freq.equipmentType}>
+                    <TableCell className="font-semibold">
+                      {EQUIPMENT_TYPE_LABELS[freq.equipmentType]}
+                    </TableCell>
+                    <TableCell>
+                      {isAdmin ? (
+                        <Input
+                          type="number"
+                          min={1}
+                          max={365}
+                          value={editValues[freq.equipmentType] ?? freq.frequencyDays}
+                          onChange={(e) =>
+                            setEditValues((prev) => ({
+                              ...prev,
+                              [freq.equipmentType]: parseInt(e.target.value) || 1,
+                            }))
+                          }
+                          className="mx-auto w-24 text-center"
+                        />
+                      ) : (
+                        <span>{freq.frequencyDays} dias</span>
+                      )}
+                    </TableCell>
+                    {isAdmin && (
+                      <TableCell>
+                        <Button
+                          size="sm"
+                          onClick={() => handleSave(freq.equipmentType)}
+                          disabled={!hasChanged(freq.equipmentType) || saving === freq.equipmentType}
+                        >
+                          {saving === freq.equipmentType && (
+                            <Loader2 className="animate-spin" />
+                          )}
+                          Salvar
+                        </Button>
+                      </TableCell>
+                    )}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
     </div>
   )
 }
