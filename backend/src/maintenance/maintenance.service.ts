@@ -1,16 +1,23 @@
-import { Injectable, NotFoundException, Inject, forwardRef } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+  BadRequestException,
+  Inject,
+  forwardRef,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { EquipmentType } from '@prisma/client';
 import { CompleteMaintenanceDto } from './dto/complete-maintenance.dto';
 import { SettingsService } from '../settings/settings.service';
-
-export const CHECKLIST_BY_TYPE: Record<EquipmentType, string[]> = {
-  MOTOR: ['Temperatura ok', 'Ruído ok', 'Lubrificação realizada'],
-  COMPRESSOR: ['Filtro verificado', 'Vazamentos checados', 'Pressão ok'],
-  PUMP: ['Vazamento checado', 'Vibração ok', 'Vedação ok'],
-  CONVEYOR: ['Alinhamento ok', 'Tensão ok', 'Motor ok'],
-  PANEL: ['Limpeza realizada', 'Aperto de conexões', 'Aquecimento checado'],
-};
+import { AuditService, AuditAction } from '../audit/audit.service';
+import {
+  CHECKLIST_BY_TYPE,
+  correctiveDescription,
+  correctiveDueDate,
+  nonConformities,
+  validateChecklist,
+} from './checklist';
 
 @Injectable()
 export class MaintenanceService {
@@ -18,6 +25,7 @@ export class MaintenanceService {
     private prisma: PrismaService,
     @Inject(forwardRef(() => SettingsService))
     private settingsService: SettingsService,
+    private auditService: AuditService,
   ) {}
 
   async createInitialMaintenance(equipmentId: string, equipmentType: EquipmentType) {
@@ -107,6 +115,11 @@ export class MaintenanceService {
       },
       include: {
         equipment: true,
+        origin: { select: { id: true, dueDate: true, concludedAt: true, checklist: true } },
+        correctives: {
+          where: { deletedAt: null },
+          select: { id: true, status: true, dueDate: true, concludedAt: true },
+        },
       },
     });
 
@@ -117,45 +130,95 @@ export class MaintenanceService {
     return maintenance;
   }
 
-  async complete(id: string, completeDto: CompleteMaintenanceDto) {
+  /**
+   * Conclui uma manutenção.
+   * - Preventiva: exige o checklist completo, agenda a próxima e, se houver itens
+   *   "Não OK", abre uma corretiva com prazo pela criticidade do equipamento.
+   * - Corretiva: exige a solução aplicada (observations) e não gera próxima.
+   */
+  async complete(id: string, completeDto: CompleteMaintenanceDto, userId?: string) {
     const maintenance = await this.findOne(id);
 
     if (maintenance.status === 'DONE') {
-      throw new Error('Esta manutenção já foi concluída');
+      throw new ConflictException('Esta manutenção já foi concluída');
     }
 
     const concludedAt = completeDto.concludedAt
       ? new Date(completeDto.concludedAt)
       : new Date();
+    const observations = completeDto.observations?.trim() || undefined;
 
-    const updatedMaintenance = await this.prisma.maintenance.update({
-      where: { id },
-      data: {
+    let checklist: ReturnType<typeof validateChecklist> | undefined;
+    let nextDueDate: Date | undefined;
+    if (maintenance.kind === 'PREVENTIVE') {
+      checklist = validateChecklist(
+        CHECKLIST_BY_TYPE[maintenance.equipment.type],
+        completeDto.checklist,
+      );
+      const frequencyDays = await this.settingsService.getFrequencyByType(
+        maintenance.equipment.type,
+      );
+      nextDueDate = new Date(concludedAt);
+      nextDueDate.setDate(nextDueDate.getDate() + frequencyDays);
+    } else if (!observations) {
+      throw new BadRequestException('Descreva a solução aplicada na corretiva');
+    }
+    const nok = checklist ? nonConformities(checklist) : [];
+
+    // Conclusão, próxima preventiva e corretiva são atômicas; o filtro por status
+    // impede que dois envios simultâneos gerem registros duplicados.
+    const result = await this.prisma.$transaction(async (tx) => {
+      const { count } = await tx.maintenance.updateMany({
+        where: { id, status: 'SCHEDULED', deletedAt: null },
+        data: { status: 'DONE', concludedAt, checklist, observations },
+      });
+      if (count === 0) {
+        throw new ConflictException('Esta manutenção já foi concluída');
+      }
+
+      const next = nextDueDate
+        ? await tx.maintenance.create({
+            data: { equipmentId: maintenance.equipmentId, dueDate: nextDueDate },
+          })
+        : null;
+
+      const corrective =
+        nok.length > 0
+          ? await tx.maintenance.create({
+              data: {
+                equipmentId: maintenance.equipmentId,
+                kind: 'CORRECTIVE',
+                originId: id,
+                dueDate: correctiveDueDate(concludedAt, maintenance.equipment.criticality),
+                description: correctiveDescription(nok),
+              },
+            })
+          : null;
+
+      const updated = await tx.maintenance.findUniqueOrThrow({
+        where: { id },
+        include: { equipment: true },
+      });
+      return { maintenance: updated, next, corrective };
+    });
+
+    await this.auditService.log({
+      userId,
+      action: AuditAction.UPDATE,
+      entity: 'Maintenance',
+      entityId: id,
+      oldValue: { status: maintenance.status },
+      newValue: {
         status: 'DONE',
+        kind: maintenance.kind,
         concludedAt,
-        checklist: completeDto.checklist,
-        observations: completeDto.observations,
-      },
-      include: {
-        equipment: true,
+        checklist,
+        nextId: result.next?.id,
+        correctiveId: result.corrective?.id,
       },
     });
 
-    const frequencyDays = await this.settingsService.getFrequencyByType(
-      maintenance.equipment.type,
-    );
-    const nextDueDate = new Date(concludedAt);
-    nextDueDate.setDate(nextDueDate.getDate() + frequencyDays);
-
-    await this.prisma.maintenance.create({
-      data: {
-        equipmentId: maintenance.equipmentId,
-        dueDate: nextDueDate,
-        status: 'SCHEDULED',
-      },
-    });
-
-    return updatedMaintenance;
+    return result;
   }
 
   async getChecklist(equipmentType: EquipmentType) {
@@ -221,16 +284,25 @@ export class MaintenanceService {
   }
 
   async getDashboardStats() {
-    const [upcoming, overdue, completedThisMonth] = await Promise.all([
+    const [upcoming, overdue, completedThisMonth, openCorrectives] = await Promise.all([
       this.countUpcoming(3),
       this.countOverdue(),
       this.countCompletedThisMonth(),
+      this.prisma.maintenance.count({
+        where: {
+          kind: 'CORRECTIVE',
+          status: 'SCHEDULED',
+          deletedAt: null,
+          equipment: { deletedAt: null },
+        },
+      }),
     ]);
 
     return {
       upcoming,
       overdue,
       completedThisMonth,
+      openCorrectives,
     };
   }
 }

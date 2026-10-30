@@ -1,7 +1,6 @@
 import { PrismaClient, EquipmentType, Criticality } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
-
-const prisma = new PrismaClient();
+import { createRandom, seedEquipmentHistory } from './seed-history';
 
 const DEFAULT_FREQUENCIES: Record<EquipmentType, number> = {
   MOTOR: 30,
@@ -74,18 +73,40 @@ const EQUIPMENT_DATA = [
   },
 ];
 
-async function main() {
-  console.log('Starting seed...');
+export interface SeedOptions {
+  /** Apaga os dados existentes antes de popular */
+  reset?: boolean;
+  log?: (message: string) => void;
+}
+
+/**
+ * Popula o banco com dados de demonstração.
+ * Idempotente: sem `reset`, não faz nada se o banco já tiver usuários
+ * (o container roda o seed a cada start e não pode apagar dados reais).
+ */
+export async function runSeed(prisma: PrismaClient, options: SeedOptions = {}) {
+  const log = options.log ?? console.log;
+
+  if (!options.reset) {
+    const users = await prisma.user.count();
+    if (users > 0) {
+      log('Banco já populado; seed ignorado (use --reset para recriar).');
+      return { skipped: true };
+    }
+  }
+
+  log('Starting seed...');
 
   // Clear existing data (in correct order due to foreign keys)
-  console.log('Clearing existing data...');
+  log('Clearing existing data...');
   await prisma.auditLog.deleteMany();
+  await prisma.downtime.deleteMany();
   await prisma.maintenance.deleteMany();
   await prisma.equipment.deleteMany();
   await prisma.frequencySettings.deleteMany();
   await prisma.user.deleteMany();
 
-  console.log('Cleared existing data');
+  log('Cleared existing data');
 
   // Create admin user (password: admin123 - for development only!)
   const hashedPassword = await bcrypt.hash('admin123', 10);
@@ -97,7 +118,7 @@ async function main() {
       role: 'ADMIN',
     },
   });
-  console.log(`Created admin user: ${admin.email}`);
+  log(`Created admin user: ${admin.email}`);
 
   // Create a regular user for testing
   const userPassword = await bcrypt.hash('user123', 10);
@@ -109,7 +130,7 @@ async function main() {
       role: 'USER',
     },
   });
-  console.log(`Created regular user: ${user.email}`);
+  log(`Created regular user: ${user.email}`);
 
   // Create frequency settings
   for (const [type, days] of Object.entries(DEFAULT_FREQUENCIES)) {
@@ -120,31 +141,33 @@ async function main() {
       },
     });
   }
-  console.log('Created frequency settings');
+  log('Created frequency settings');
 
-  // Create equipment and initial maintenances
+  // Cenário da demonstração: duas preventivas vencidas e uma a vencer em 2 dias
+  const DEMO_NEXT_DUE: Record<string, number> = {
+    'Motor Auxiliar Linha 2': -4,
+    'Painel Elétrico Principal': -2,
+    'Esteira Transportadora Linha B': 2,
+  };
+
+  // Create equipment with ~6 months of history (preventives, correctives, downtimes)
+  const random = createRandom(42);
+  const installedAt = new Date(Date.now() - 200 * 24 * 60 * 60 * 1000);
   for (const equipmentData of EQUIPMENT_DATA) {
     const equipment = await prisma.equipment.create({
-      data: equipmentData,
+      data: { ...equipmentData, createdAt: installedAt },
     });
 
-    const frequencyDays = DEFAULT_FREQUENCIES[equipment.type];
-    const dueDate = new Date();
-    dueDate.setDate(dueDate.getDate() + frequencyDays);
+    await seedEquipmentHistory(
+      prisma,
+      equipment,
+      DEFAULT_FREQUENCIES[equipment.type],
+      random,
+      new Date(),
+      DEMO_NEXT_DUE[equipment.name],
+    );
 
-    // Create some variety in due dates for demo purposes
-    const randomOffset = Math.floor(Math.random() * 10) - 5; // -5 to +5 days
-    dueDate.setDate(dueDate.getDate() + randomOffset);
-
-    await prisma.maintenance.create({
-      data: {
-        equipmentId: equipment.id,
-        dueDate,
-        status: 'SCHEDULED',
-      },
-    });
-
-    console.log(`Created equipment: ${equipment.name} with initial maintenance`);
+    log(`Created equipment: ${equipment.name} with maintenance history`);
   }
 
   // Create initial audit log entry
@@ -158,21 +181,25 @@ async function main() {
     },
   });
 
-  console.log('Seed completed successfully!');
-  console.log('');
-  console.log('=================================');
-  console.log('Credenciais de acesso:');
-  console.log('=================================');
-  console.log('Admin: admin@fpm.com / admin123');
-  console.log('User:  user@fpm.com / user123');
-  console.log('=================================');
+  log('Seed completed successfully!');
+  log('');
+  log('=================================');
+  log('Credenciais de acesso:');
+  log('=================================');
+  log('Admin: admin@fpm.com / admin123');
+  log('User:  user@fpm.com / user123');
+  log('=================================');
+  return { skipped: false };
 }
 
-main()
-  .catch((e) => {
-    console.error('Seed error:', e);
-    process.exit(1);
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
-  });
+if (require.main === module) {
+  const prisma = new PrismaClient();
+  runSeed(prisma, { reset: process.argv.includes('--reset') })
+    .catch((e) => {
+      console.error('Seed error:', e);
+      process.exit(1);
+    })
+    .finally(async () => {
+      await prisma.$disconnect();
+    });
+}

@@ -2,6 +2,7 @@ import { Injectable, UnauthorizedException, BadRequestException } from '@nestjs/
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
+import { createHash, randomUUID } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService, AuditAction } from '../audit/audit.service';
 import { LoginDto } from './dto/login.dto';
@@ -39,10 +40,9 @@ export class AuthService {
     const tokens = await this.generateTokens(user.id, user.email, user.role);
 
     // Save refresh token hash in database
-    const refreshTokenHash = await bcrypt.hash(tokens.refresh_token, 10);
     await this.prisma.user.update({
       where: { id: user.id },
-      data: { refreshToken: refreshTokenHash },
+      data: { refreshToken: this.hashToken(tokens.refresh_token) },
     });
 
     // Audit log
@@ -86,20 +86,18 @@ export class AuthService {
         throw new UnauthorizedException('Token inválido');
       }
 
-      const isRefreshTokenValid = await bcrypt.compare(refresh_token, user.refreshToken);
-
-      if (!isRefreshTokenValid) {
-        throw new UnauthorizedException('Token inválido');
-      }
-
       const tokens = await this.generateTokens(user.id, user.email, user.role);
 
-      // Rotate refresh token
-      const newRefreshTokenHash = await bcrypt.hash(tokens.refresh_token, 10);
-      await this.prisma.user.update({
-        where: { id: user.id },
-        data: { refreshToken: newRefreshTokenHash },
+      // Rotate refresh token atomically: only succeeds if the presented token is the
+      // current one, so an already-used (or concurrently used) token is rejected
+      const rotated = await this.prisma.user.updateMany({
+        where: { id: user.id, refreshToken: this.hashToken(refresh_token) },
+        data: { refreshToken: this.hashToken(tokens.refresh_token) },
       });
+
+      if (rotated.count === 0) {
+        throw new UnauthorizedException('Token inválido');
+      }
 
       return tokens;
     } catch (error) {
@@ -146,7 +144,8 @@ export class AuthService {
         secret: this.configService.get<string>('JWT_SECRET'),
         expiresIn: '15m', // Access token expires in 15 minutes
       }),
-      this.jwtService.signAsync(payload, {
+      // jti makes every refresh token unique, even two issued in the same second
+      this.jwtService.signAsync({ ...payload, jti: randomUUID() }, {
         secret: this.configService.get<string>('JWT_REFRESH_SECRET') ||
                 this.configService.get<string>('JWT_SECRET') + '-refresh',
         expiresIn: '7d', // Refresh token expires in 7 days
@@ -158,5 +157,13 @@ export class AuthService {
       refresh_token,
       expires_in: 900, // 15 minutes in seconds
     };
+  }
+
+  /**
+   * SHA-256 of the whole token. bcrypt only reads the first 72 bytes, and JWTs of the
+   * same user share that prefix, so any old refresh token would match the stored hash.
+   */
+  private hashToken(token: string) {
+    return createHash('sha256').update(token).digest('hex');
   }
 }

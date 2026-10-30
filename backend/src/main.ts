@@ -1,10 +1,9 @@
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe, Logger } from '@nestjs/common';
+import { Logger } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
-import helmet from 'helmet';
 import { AppModule } from './app.module';
-import { HttpExceptionFilter } from './common/filters/http-exception.filter';
+import { configureApp } from './app.setup';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
@@ -14,31 +13,7 @@ async function bootstrap() {
   // Use Winston logger
   app.useLogger(app.get(WINSTON_MODULE_NEST_PROVIDER));
 
-  // Security headers with Helmet
-  app.use(helmet());
-
-  // CORS configuration
-  app.enableCors({
-    origin: ['http://localhost:5173', 'http://localhost:3000'],
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-  });
-
-  // Global validation pipe
-  app.useGlobalPipes(
-    new ValidationPipe({
-      whitelist: true,
-      transform: true,
-      forbidNonWhitelisted: true,
-      transformOptions: {
-        enableImplicitConversion: true,
-      },
-    }),
-  );
-
-  // Global exception filter
-  app.useGlobalFilters(new HttpExceptionFilter());
+  configureApp(app);
 
   // Swagger documentation
   const config = new DocumentBuilder()
@@ -50,6 +25,8 @@ async function bootstrap() {
     .addTag('equipment', 'Equipamentos')
     .addTag('maintenance', 'Manutenções')
     .addTag('settings', 'Configurações')
+    .addTag('downtime', 'Paradas')
+    .addTag('metrics', 'Indicadores')
     .addTag('health', 'Health Check')
     .build();
 

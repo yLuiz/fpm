@@ -8,6 +8,7 @@ import {
   UseGuards,
   ParseIntPipe,
   DefaultValuePipe,
+  Request,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -16,7 +17,8 @@ import {
   ApiBearerAuth,
   ApiQuery,
 } from '@nestjs/swagger';
-import { MaintenanceService, CHECKLIST_BY_TYPE } from './maintenance.service';
+import { MaintenanceService } from './maintenance.service';
+import { CHECKLIST_BY_TYPE } from './checklist';
 import { CompleteMaintenanceDto } from './dto/complete-maintenance.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { EquipmentType } from '@prisma/client';
@@ -77,9 +79,15 @@ export class MaintenanceController {
 
   @Post(':id/complete')
   @ApiOperation({ summary: 'Concluir manutenção' })
-  @ApiResponse({ status: 200, description: 'Manutenção concluída e próxima agendada' })
+  @ApiResponse({ status: 201, description: 'Concluída; retorna a próxima preventiva e a corretiva aberta (se houver item NOK)' })
+  @ApiResponse({ status: 400, description: 'Checklist incompleto ou corretiva sem solução' })
   @ApiResponse({ status: 404, description: 'Manutenção não encontrada' })
-  complete(@Param('id') id: string, @Body() completeDto: CompleteMaintenanceDto) {
-    return this.maintenanceService.complete(id, completeDto);
+  @ApiResponse({ status: 409, description: 'Manutenção já concluída' })
+  complete(
+    @Param('id') id: string,
+    @Body() completeDto: CompleteMaintenanceDto,
+    @Request() req: any,
+  ) {
+    return this.maintenanceService.complete(id, completeDto, req.user?.sub);
   }
 }

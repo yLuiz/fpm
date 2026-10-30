@@ -52,6 +52,12 @@ export class EquipmentService {
           },
           take: 1,
         },
+        // Parada em andamento (equipamento "Parado")
+        downtimes: {
+          where: { endedAt: null, deletedAt: null },
+          select: { id: true, startedAt: true, cause: true, description: true },
+          take: 1,
+        },
       },
       orderBy: {
         createdAt: 'desc',
@@ -73,6 +79,12 @@ export class EquipmentService {
           orderBy: {
             dueDate: 'desc',
           },
+        },
+        // Parada em andamento (equipamento "Parado")
+        downtimes: {
+          where: { endedAt: null, deletedAt: null },
+          select: { id: true, startedAt: true, cause: true, description: true },
+          take: 1,
         },
       },
     });

@@ -48,6 +48,8 @@ services:
       JWT_REFRESH_SECRET: fpm-refresh-secret-jwt-key-2024-change-in-production
       JWT_EXPIRES_IN: 15m
       PORT: 3001
+      # "Fim do dia" do prazo e indicadores usam o horário local da fábrica
+      TZ: America/Sao_Paulo
     ports:
       - "3001:3001"
     volumes:
@@ -68,8 +70,10 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     container_name: fpm-frontend
+    # Sem VITE_API_URL o front usa o host da página na porta 3001 (funciona pelo IP da rede).
+    # VITE_PUBLIC_URL: endereço usado nos QR Codes, ex.: http://192.168.0.10:5173
     environment:
-      VITE_API_URL: http://localhost:3001
+      VITE_PUBLIC_URL: ${FPM_PUBLIC_URL:-}
     ports:
       - "5173:5173"
     depends_on:

@@ -13,6 +13,8 @@ import { MaintenanceModule } from './maintenance/maintenance.module';
 import { SettingsModule } from './settings/settings.module';
 import { HealthModule } from './health/health.module';
 import { AuditModule } from './audit/audit.module';
+import { DowntimeModule } from './downtime/downtime.module';
+import { MetricsModule } from './metrics/metrics.module';
 
 @Module({
   imports: [
@@ -22,7 +24,10 @@ import { AuditModule } from './audit/audit.module';
     }),
 
     // Rate limiting - 100 requests per minute per IP
-    ThrottlerModule.forRoot([
+    // Desligado em testes automatizados (NODE_ENV=test)
+    ThrottlerModule.forRoot({
+      skipIf: () => process.env.NODE_ENV === 'test',
+      throttlers: [
       {
         name: 'short',
         ttl: 1000, // 1 second
@@ -38,7 +43,8 @@ import { AuditModule } from './audit/audit.module';
         ttl: 3600000, // 1 hour
         limit: 1000, // 1000 requests per hour
       },
-    ]),
+      ],
+    }),
 
     // Scheduled tasks
     ScheduleModule.forRoot(),
@@ -90,6 +96,8 @@ import { AuditModule } from './audit/audit.module';
     SettingsModule,
     HealthModule,
     AuditModule,
+    DowntimeModule,
+    MetricsModule,
   ],
   providers: [
     // Global throttler guard

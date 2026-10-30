@@ -26,9 +26,21 @@ enum EquipmentStatus {
   INACTIVE
 }
 
+enum MaintenanceKind {
+  PREVENTIVE
+  CORRECTIVE
+}
+
 enum MaintenanceStatus {
   SCHEDULED
   DONE
+}
+
+enum DowntimeCause {
+  MECHANICAL
+  ELECTRICAL
+  OPERATIONAL
+  OTHER
 }
 
 enum UserRole {
@@ -64,6 +76,7 @@ model Equipment {
   deletedAt   DateTime?
 
   maintenances Maintenance[]
+  downtimes    Downtime[]
 
   @@index([type])
   @@index([status])
@@ -79,21 +92,59 @@ model Maintenance {
   dueDate      DateTime
   concludedAt  DateTime?
   status       MaintenanceStatus @default(SCHEDULED)
+  kind         MaintenanceKind   @default(PREVENTIVE)
+  /// Preventiva que originou esta corretiva (itens "Não OK" no checklist)
+  originId     String?
+  /// O que precisa ser corrigido (corretivas)
+  description  String?
   checklist    Json?
   observations String?
   createdAt    DateTime          @default(now())
   updatedAt    DateTime          @updatedAt
   deletedAt    DateTime?
 
-  equipment Equipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+  equipment   Equipment     @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+  origin      Maintenance?  @relation("MaintenanceOrigin", fields: [originId], references: [id])
+  correctives Maintenance[] @relation("MaintenanceOrigin")
+  downtime    Downtime?     @relation("DowntimeCorrective")
 
   @@index([equipmentId])
+  @@index([kind, status])
+  @@index([originId])
   @@index([status])
   @@index([dueDate])
   @@index([status, dueDate])
   @@index([equipmentId, status])
   @@index([deletedAt])
   @@map("maintenances")
+}
+
+/// Parada não planejada de um equipamento (falha real)
+model Downtime {
+  id                String        @id @default(uuid())
+  equipmentId       String
+  startedAt         DateTime
+  /// Nulo enquanto o equipamento está parado
+  endedAt           DateTime?
+  cause             DowntimeCause
+  description       String
+  /// Snapshot: o equipamento tinha preventiva vencida quando parou
+  preventiveOverdue Boolean       @default(false)
+  /// Corretiva aberta junto com a parada (opcional)
+  correctiveId      String?       @unique
+  createdById       String?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  deletedAt         DateTime?
+
+  equipment  Equipment    @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+  corrective Maintenance? @relation("DowntimeCorrective", fields: [correctiveId], references: [id])
+
+  @@index([equipmentId])
+  @@index([startedAt])
+  @@index([endedAt])
+  @@index([deletedAt])
+  @@map("downtimes")
 }
 
 model FrequencySettings {
