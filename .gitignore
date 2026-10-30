@@ -33,3 +33,24 @@ coverage/
 
 # Prisma
 prisma/*.db
+
+# Testes
+test-results/
+playwright-report/
+coverage/
+
+# Logs da aplicação (rotação do winston)
+backend/logs/
+
+# Dumps do serviço postgres-backup (dados reais do banco)
+backups/
+
+# Artefatos gerados pelo `tsc -b` do frontend
+*.tsbuildinfo
+frontend/vite.config.js
+frontend/vite.config.d.ts
+
+# Material de terceiros mantido só localmente (repositório é público)
+docs/pitch/orientacoes-pitch-descomplica-v3.pdf
+docs/pitch/templates/
+docs/design/design-system-junglerms.md
