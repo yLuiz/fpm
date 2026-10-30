@@ -126,10 +126,14 @@ function OperationTab() {
   const [overdue, setOverdue] = useState<Maintenance[]>([])
   const [downNow, setDownNow] = useState<Downtime[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(false)
+  const [attempt, setAttempt] = useState(0)
   const [hiddenStatus, setHiddenStatus] = useState<string[]>([])
 
   useEffect(() => {
     const loadData = async () => {
+      setLoading(true)
+      setLoadError(false)
       try {
         const [statsData, equipments, upcomingData, overdueData, openDowntimes] = await Promise.all([
           maintenanceApi.getStats(),
@@ -144,13 +148,15 @@ function OperationTab() {
         setUpcoming(upcomingData)
         setOverdue(overdueData)
       } catch (error) {
+        // Sem isso os KPIs mostravam 0 e as tabelas "nenhuma", como se estivesse tudo em dia
         console.error('Error loading dashboard data:', error)
+        setLoadError(true)
       } finally {
         setLoading(false)
       }
     }
     loadData()
-  }, [])
+  }, [attempt])
 
   if (loading) {
     return (
@@ -165,6 +171,20 @@ function OperationTab() {
           <Skeleton className="h-80 w-full" />
         </div>
       </>
+    )
+  }
+
+  if (loadError) {
+    return (
+      <Card>
+        <EmptyState
+          icon={AlertTriangle}
+          title="Não foi possível carregar o painel"
+          description="Os números do painel não estão disponíveis agora. Verifique a conexão e tente de novo."
+        >
+          <Button onClick={() => setAttempt((n) => n + 1)}>Tentar novamente</Button>
+        </EmptyState>
+      </Card>
     )
   }
 

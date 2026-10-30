@@ -82,21 +82,22 @@ export default function EquipmentForm() {
 
   if (loading) {
     return (
-      <div className="space-y-6">
+      <div className="mx-auto w-full max-w-2xl space-y-6">
         <Skeleton className="h-9 w-64" />
-        <Skeleton className="h-96 max-w-2xl" />
+        <Skeleton className="h-96" />
       </div>
     )
   }
 
   return (
-    <>
+    // Título e formulário centralizados juntos, como em Configurações
+    <div className="mx-auto w-full max-w-2xl space-y-4">
       <PageHeader
         back={{ to: '/equipment', label: 'Voltar para lista' }}
         title={isEditing ? 'Editar equipamento' : 'Novo equipamento'}
       />
 
-      <Card className="max-w-2xl">
+      <Card>
         <CardHeader>
           <CardTitle>Dados do equipamento</CardTitle>
         </CardHeader>
@@ -171,6 +172,6 @@ export default function EquipmentForm() {
           </form>
         </CardContent>
       </Card>
-    </>
+    </div>
   )
 }

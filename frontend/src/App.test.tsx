@@ -41,4 +41,22 @@ describe('Rotas protegidas', () => {
     expect(await screen.findByText('Email ou senha inválidos')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Entrar' })).toBeInTheDocument()
   })
+
+  it('limite de tentativas não aparece como senha errada', async () => {
+    vi.mocked(authApi.login).mockRejectedValue({ isAxiosError: true, response: { status: 429 } })
+    renderApp('/equipment')
+
+    await userEvent.type(await screen.findByLabelText('Email'), 'admin@fpm.com')
+    await userEvent.type(screen.getByLabelText('Senha'), 'admin123')
+    await userEvent.click(screen.getByRole('button', { name: 'Entrar' }))
+
+    expect(await screen.findByText(/Muitas tentativas/)).toBeInTheDocument()
+    expect(screen.queryByText('Email ou senha inválidos')).not.toBeInTheDocument()
+  })
+
+  it('não exibe credenciais na tela de login', async () => {
+    renderApp('/login')
+    expect(await screen.findByRole('button', { name: 'Entrar' })).toBeInTheDocument()
+    expect(screen.queryByText(/admin123/)).not.toBeInTheDocument()
+  })
 })

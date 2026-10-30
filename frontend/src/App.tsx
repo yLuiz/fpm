@@ -34,6 +34,13 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>
 }
 
+/** Telas de gestão de equipamentos: só ADMIN (decisão D1); o backend também recusa com 403. */
+function AdminRoute({ children }: { children: React.ReactNode }) {
+  const { user } = useAuth()
+  if (user?.role !== 'ADMIN') return <Navigate to="/equipment" replace />
+  return <>{children}</>
+}
+
 function App() {
   return (
     <Routes>
@@ -48,11 +55,11 @@ function App() {
       >
         <Route index element={<Dashboard />} />
         <Route path="equipment" element={<EquipmentList />} />
-        <Route path="equipment/new" element={<EquipmentForm />} />
+        <Route path="equipment/new" element={<AdminRoute><EquipmentForm /></AdminRoute>} />
         <Route path="equipment/labels" element={<EquipmentLabels />} />
         <Route path="e/:id" element={<EquipmentScan />} />
         <Route path="equipment/:id" element={<EquipmentDetail />} />
-        <Route path="equipment/:id/edit" element={<EquipmentForm />} />
+        <Route path="equipment/:id/edit" element={<AdminRoute><EquipmentForm /></AdminRoute>} />
         <Route path="maintenance/:id/register" element={<MaintenanceRegister />} />
         <Route path="downtime" element={<Downtimes />} />
         <Route path="settings" element={<Settings />} />

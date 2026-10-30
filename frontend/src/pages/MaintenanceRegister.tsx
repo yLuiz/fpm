@@ -92,6 +92,12 @@ export default function MaintenanceRegister() {
     if (!maintenance) return
     const isPreventive = maintenance.kind === 'PREVENTIVE'
 
+    // Campo vazio gera "Invalid time value" no toISOString e o envio falhava em silêncio
+    if (!concludedAt || Number.isNaN(new Date(concludedAt).getTime())) {
+      toast.error('Informe a data e a hora da conclusão')
+      return
+    }
+
     let dto: CompleteMaintenanceDto
     if (isPreventive) {
       const errors = checklistErrors(checklistItems, answers)
@@ -278,6 +284,7 @@ export default function MaintenanceRegister() {
                 <Input
                   id="concludedAt"
                   type="datetime-local"
+                  max={toDateTimeLocal(new Date())}
                   value={concludedAt}
                   onChange={(e) => setConcludedAt(e.target.value)}
                 />

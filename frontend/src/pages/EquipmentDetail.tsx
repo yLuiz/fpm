@@ -1,3 +1,4 @@
+import { useAuth } from '../contexts/AuthContext'
 import { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { Pencil, Wrench, History, AlertTriangle, OctagonAlert, Power, QrCode } from 'lucide-react'
@@ -76,6 +77,8 @@ const byDueDateAsc = (a: Maintenance, b: Maintenance) =>
   new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()
 
 export default function EquipmentDetail() {
+  const { user } = useAuth()
+  const isAdmin = user?.role === 'ADMIN'
   const { id } = useParams<{ id: string }>()
   const [equipment, setEquipment] = useState<Equipment | null>(null)
   const [loading, setLoading] = useState(true)
@@ -127,6 +130,8 @@ export default function EquipmentDetail() {
   const nextPreventive = scheduled.find((m) => m.kind === 'PREVENTIVE')
   const openCorrectives = scheduled.filter((m) => m.kind === 'CORRECTIVE')
   const openDowntime = equipment.downtimes?.[0]
+  // Inativo não aceita parada nem conclusão no backend (decisão D4)
+  const isActive = equipment.status === 'ACTIVE'
 
   return (
     <>
@@ -142,10 +147,12 @@ export default function EquipmentDetail() {
                 Encerrar parada
               </Button>
             ) : (
-              <Button variant="destructive" onClick={() => setRegisterOpen(true)}>
-                <OctagonAlert />
-                Registrar parada
-              </Button>
+              isActive && (
+                <Button variant="destructive" onClick={() => setRegisterOpen(true)}>
+                  <OctagonAlert />
+                  Registrar parada
+                </Button>
+              )
             )}
             <Button asChild variant="outline">
               <Link to={`/equipment/labels?ids=${equipment.id}`}>
@@ -153,13 +160,15 @@ export default function EquipmentDetail() {
                 Etiqueta QR
               </Link>
             </Button>
-            <Button asChild variant="outline">
-              <Link to={`/equipment/${equipment.id}/edit`}>
-                <Pencil />
-                Editar
-              </Link>
-            </Button>
-            {nextPreventive && (
+            {isAdmin && (
+              <Button asChild variant="outline">
+                <Link to={`/equipment/${equipment.id}/edit`}>
+                  <Pencil />
+                  Editar
+                </Link>
+              </Button>
+            )}
+            {isActive && nextPreventive && (
               <Button asChild>
                 <Link to={`/maintenance/${nextPreventive.id}/register`}>
                   <Wrench />

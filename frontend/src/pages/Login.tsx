@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import axios from 'axios'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { Loader2 } from 'lucide-react'
 import { BrandMark } from '@/components/brand-mark'
@@ -16,6 +17,16 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
+
+/** Diferencia credencial errada de limite de tentativas, falha de rede e erro do servidor. */
+function loginErrorMessage(error: unknown) {
+  if (axios.isAxiosError(error)) {
+    if (!error.response) return 'Não foi possível conectar ao servidor. Verifique a conexão.'
+    if (error.response.status === 429) return 'Muitas tentativas. Aguarde um minuto e tente de novo.'
+    if (error.response.status >= 500) return 'O servidor não respondeu como esperado. Tente novamente.'
+  }
+  return 'Email ou senha inválidos'
+}
 
 export default function Login() {
   const [email, setEmail] = useState('')
@@ -37,8 +48,8 @@ export default function Login() {
       await login({ email, password })
       toast.success('Bem-vindo de volta!')
       navigate(from, { replace: true })
-    } catch {
-      toast.error('Email ou senha inválidos')
+    } catch (error) {
+      toast.error(loginErrorMessage(error))
     } finally {
       setLoading(false)
     }
@@ -93,10 +104,6 @@ export default function Login() {
                 {loading && <Loader2 className="animate-spin" />}
                 {loading ? 'Entrando...' : 'Entrar'}
               </Button>
-              <div className="w-full rounded-lg border border-surface-strong bg-background px-4 py-3 text-center text-xs font-normal text-label">
-                <p className="font-semibold text-foreground">Usuário de teste</p>
-                <p>admin@fpm.com · admin123</p>
-              </div>
             </CardFooter>
           </form>
         </Card>

@@ -1,3 +1,4 @@
+import { useAuth } from '../contexts/AuthContext'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Plus, MoreHorizontal, Eye, Pencil, Power, Cog, QrCode } from 'lucide-react'
@@ -45,6 +46,8 @@ import {
 } from '@/components/ui/alert-dialog'
 
 export default function EquipmentList() {
+  const { user } = useAuth()
+  const isAdmin = user?.role === 'ADMIN'
   const [equipment, setEquipment] = useState<Equipment[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<string>('ALL')
@@ -106,12 +109,14 @@ export default function EquipmentList() {
                 Etiquetas QR
               </Link>
             </Button>
-            <Button asChild>
-              <Link to="/equipment/new">
-                <Plus />
-                Novo equipamento
-              </Link>
-            </Button>
+            {isAdmin && (
+              <Button asChild>
+                <Link to="/equipment/new">
+                  <Plus />
+                  Novo equipamento
+                </Link>
+              </Button>
+            )}
           </>
         }
       />
@@ -190,16 +195,20 @@ export default function EquipmentList() {
                               Ver detalhes
                             </Link>
                           </DropdownMenuItem>
-                          <DropdownMenuItem asChild>
-                            <Link to={`/equipment/${item.id}/edit`}>
-                              <Pencil />
-                              Editar
-                            </Link>
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => setConfirmTarget(item)}>
-                            <Power />
-                            {item.status === 'ACTIVE' ? 'Desativar' : 'Ativar'}
-                          </DropdownMenuItem>
+                          {isAdmin && (
+                            <>
+                              <DropdownMenuItem asChild>
+                                <Link to={`/equipment/${item.id}/edit`}>
+                                  <Pencil />
+                                  Editar
+                                </Link>
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => setConfirmTarget(item)}>
+                                <Power />
+                                {item.status === 'ACTIVE' ? 'Desativar' : 'Ativar'}
+                              </DropdownMenuItem>
+                            </>
+                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>

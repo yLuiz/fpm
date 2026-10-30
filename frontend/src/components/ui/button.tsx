@@ -11,7 +11,7 @@ const buttonVariants = cva(
       variant: {
         // Sólido (primário): acento verde água
         default:
-          "bg-accent-solid text-white hover:bg-accent-solid/40 active:bg-accent-pressed disabled:bg-accent-disabled disabled:text-[#d4d4d4]",
+          "bg-accent-solid text-white hover:bg-accent-solid/40 active:bg-accent-pressed disabled:bg-border-disabled disabled:text-[#b5b5b5]",
         // Outline (padrão do design system)
         outline:
           "border-border bg-transparent text-foreground hover:border-accent-solid/50 hover:bg-accent-solid/50 active:border-accent-solid active:bg-accent-solid aria-expanded:border-accent-solid/50 aria-expanded:bg-accent-solid/50 disabled:border-border-disabled disabled:text-border-disabled",

@@ -100,6 +100,17 @@ describe('Registro de manutenção', () => {
       expect(await screen.findByRole('heading', { name: /Motor Linha 1/ })).toBeInTheDocument()
     })
 
+    it('avisa e não envia quando a data da conclusão está vazia', async () => {
+      renderApp('/maintenance/m1/register')
+      await choose('Ruído ok', 'OK')
+      await userEvent.click(screen.getByRole('button', { name: /Pendentes como OK/ }))
+      await userEvent.clear(screen.getByLabelText('Data/hora da conclusão'))
+      await userEvent.click(screen.getByRole('button', { name: 'Registrar preventiva' }))
+
+      expect(await screen.findByText('Informe a data e a hora da conclusão')).toBeInTheDocument()
+      expect(maintenanceApi.complete).not.toHaveBeenCalled()
+    })
+
     it('"Pendentes como OK" preenche os itens sem resposta', async () => {
       vi.mocked(maintenanceApi.complete).mockResolvedValue({
         maintenance: maintenance({ status: 'DONE' }),

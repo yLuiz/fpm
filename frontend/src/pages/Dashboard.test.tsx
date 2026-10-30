@@ -49,6 +49,17 @@ describe('Dashboard', () => {
     vi.mocked(metricsApi.monthly).mockResolvedValue(monthly)
   })
 
+  it('falha ao carregar mostra aviso em vez de KPIs zerados, e tenta de novo', async () => {
+    vi.mocked(maintenanceApi.getStats).mockRejectedValueOnce(new Error('500'))
+    renderApp('/')
+
+    expect(await screen.findByText('Não foi possível carregar o painel')).toBeInTheDocument()
+    expect(screen.queryByText('Corretivas abertas')).not.toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Tentar novamente' }))
+    expect(await screen.findByText('Corretivas abertas')).toBeInTheDocument()
+  })
+
   it('abre na aba Operação com os KPIs do dia e não carrega indicadores', async () => {
     renderApp('/')
     expect(await screen.findByText('Corretivas abertas')).toBeInTheDocument()
