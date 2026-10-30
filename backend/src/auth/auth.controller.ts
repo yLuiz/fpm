@@ -1,6 +1,6 @@
 import { Controller, Post, Body, Get, UseGuards, Request, Ip, Headers } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
-import { SkipThrottle, Throttle } from '@nestjs/throttler';
+import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
@@ -12,7 +12,9 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post('login')
-  @Throttle({ default: { limit: 5, ttl: 60000 } }) // 5 tentativas por minuto
+  // 5 tentativas por minuto. A chave precisa ser um throttler registrado no
+  // app.module (short/medium/long); `default` não existe e era ignorado
+  @Throttle({ medium: { limit: 5, ttl: 60000 } })
   @ApiOperation({ summary: 'Login do usuário' })
   @ApiResponse({ status: 200, description: 'Login realizado com sucesso' })
   @ApiResponse({ status: 401, description: 'Credenciais inválidas' })
@@ -26,7 +28,6 @@ export class AuthController {
   }
 
   @Post('refresh')
-  @SkipThrottle()
   @ApiOperation({ summary: 'Renovar access token usando refresh token' })
   @ApiResponse({ status: 200, description: 'Token renovado com sucesso' })
   @ApiResponse({ status: 401, description: 'Refresh token inválido ou expirado' })

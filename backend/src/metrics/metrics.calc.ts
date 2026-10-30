@@ -4,8 +4,10 @@
  * - Cumprimento do plano: preventivas vencíveis no período concluídas até o fim do dia do prazo.
  * - Atraso médio: dias de atraso das preventivas concluídas no período (0 se no prazo).
  * - MTTR: duração média das paradas encerradas iniciadas no período.
- * - MTBF: horas de operação (equipamentos × horas do período − horas paradas) por parada.
+ * - MTBF: horas de operação (horas disponíveis − horas paradas) por parada.
  * - Disponibilidade: 1 − horas paradas / horas disponíveis.
+ * - Horas disponíveis: soma, por equipamento, do tempo do período em que ele já estava
+ *   cadastrado (equipamento novo não aumenta as horas de meses passados).
  */
 
 export const DAY_MS = 24 * 60 * 60 * 1000;
@@ -25,6 +27,19 @@ export interface DowntimeRecord {
   startedAt: Date;
   endedAt: Date | null;
   preventiveOverdue: boolean;
+}
+
+export interface EquipmentRecord {
+  createdAt: Date;
+}
+
+/** Minutos do período em que cada equipamento existia, somados (contados até `now`). */
+export function availableMinutes(equipment: EquipmentRecord[], period: Period, now: Date) {
+  const end = Math.min(period.to.getTime(), now.getTime());
+  return equipment.reduce((sum, e) => {
+    const start = Math.max(period.from.getTime(), e.createdAt.getTime());
+    return sum + (end > start ? (end - start) / 60000 : 0);
+  }, 0);
 }
 
 export function endOfDay(date: Date) {
@@ -77,12 +92,10 @@ export function overlapMinutes(d: DowntimeRecord, period: Period, now: Date) {
 export function downtimeIndicators(
   downtimes: DowntimeRecord[],
   period: Period,
-  equipmentCount: number,
+  equipment: EquipmentRecord[],
   now: Date,
 ) {
-  const effectiveEnd = Math.min(period.to.getTime(), now.getTime());
-  const periodMinutes = Math.max(0, (effectiveEnd - period.from.getTime()) / 60000);
-  const availableMinutes = periodMinutes * equipmentCount;
+  const available = availableMinutes(equipment, period, now);
 
   const downMinutes = downtimes.reduce((sum, d) => sum + overlapMinutes(d, period, now), 0);
   const failures = downtimes.filter((d) => inPeriod(d.startedAt, period));
@@ -99,10 +112,11 @@ export function downtimeIndicators(
     totalMinutes: Math.round(downMinutes),
     mttrMinutes: repaired.length > 0 ? Math.round(repairMinutes / repaired.length) : null,
     mtbfHours:
-      failures.length > 0 && availableMinutes > 0
-        ? round((availableMinutes - downMinutes) / 60 / failures.length, 1)
+      failures.length > 0 && available > 0
+        ? round(Math.max(0, available - downMinutes) / 60 / failures.length, 1)
         : null,
-    availability: availableMinutes > 0 ? round(1 - downMinutes / availableMinutes, 4) : null,
+    // Limitado a [0, 1]: parada anterior ao cadastro (dado antigo) não gera valor negativo
+    availability: available > 0 ? round(Math.max(0, 1 - downMinutes / available), 4) : null,
   };
 }
 

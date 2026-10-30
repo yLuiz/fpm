@@ -32,17 +32,18 @@ export class DowntimeService {
     if (!equipment) {
       throw new NotFoundException(`Equipamento com ID ${dto.equipmentId} não encontrado`);
     }
+    if (equipment.status !== 'ACTIVE') {
+      throw new ConflictException('Equipamento inativo: reative-o para registrar parada');
+    }
 
     const startedAt = dto.startedAt ? new Date(dto.startedAt) : new Date();
     if (startedAt.getTime() > Date.now() + FUTURE_TOLERANCE_MS) {
       throw new BadRequestException('O início da parada não pode estar no futuro');
     }
 
-    const open = await this.prisma.downtime.findFirst({
-      where: { equipmentId: equipment.id, endedAt: null, deletedAt: null },
-    });
-    if (open) {
-      throw new ConflictException('Este equipamento já tem uma parada em andamento');
+    // Tolerância de 1 min: o campo da tela não tem segundos (cadastro e parada no mesmo minuto)
+    if (startedAt.getTime() < equipment.createdAt.getTime() - 60_000) {
+      throw new BadRequestException('O início da parada não pode ser anterior ao cadastro do equipamento');
     }
 
     const preventives = await this.prisma.maintenance.findMany({
@@ -53,12 +54,33 @@ export class DowntimeService {
     const description = dto.description.trim();
 
     const downtime = await this.prisma.$transaction(async (tx) => {
+      // Trava a linha do equipamento: registros simultâneos de parada no mesmo
+      // equipamento passam um de cada vez pelas verificações abaixo
+      await tx.$queryRaw`SELECT id FROM "equipments" WHERE id = ${equipment.id} FOR UPDATE`;
+
+      const open = await tx.downtime.findFirst({
+        where: { equipmentId: equipment.id, endedAt: null, deletedAt: null },
+      });
+      if (open) {
+        throw new ConflictException('Este equipamento já tem uma parada em andamento');
+      }
+
+      // A nova parada fica aberta a partir de startedAt: não pode começar dentro de
+      // uma parada já encerrada, senão as horas paradas seriam contadas em dobro
+      const overlapping = await tx.downtime.findFirst({
+        where: { equipmentId: equipment.id, deletedAt: null, endedAt: { gt: startedAt } },
+      });
+      if (overlapping) {
+        throw new ConflictException('O início informado se sobrepõe a uma parada já registrada');
+      }
+
       const corrective = dto.openCorrective
         ? await tx.maintenance.create({
             data: {
               equipmentId: equipment.id,
               kind: 'CORRECTIVE',
-              dueDate: correctiveDueDate(startedAt, equipment.criticality),
+              // Prazo conta do registro no sistema (decisão D3), como nas corretivas do checklist
+              dueDate: correctiveDueDate(new Date(), equipment.criticality),
               description: correctiveFromDowntime(dto.cause, description),
             },
           })

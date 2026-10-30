@@ -49,6 +49,40 @@ describe('Paradas (integração com banco)', () => {
     expect(await prisma.auditLog.count({ where: { entity: 'Downtime' } })).toBe(3);
   });
 
+  it('registros simultâneos no mesmo equipamento abrem uma única parada', async () => {
+    const eq = await createEquipment();
+
+    const results = await Promise.allSettled(
+      [1, 2, 3].map(() =>
+        service.create({ equipmentId: eq.id, cause: 'MECHANICAL', description: 'x', openCorrective: true }),
+      ),
+    );
+
+    expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
+    expect(await prisma.downtime.count({ where: { equipmentId: eq.id } })).toBe(1);
+    expect(await prisma.maintenance.count({ where: { equipmentId: eq.id, kind: 'CORRECTIVE' } })).toBe(1);
+  });
+
+  it('recusa parada retroativa sobreposta a outra já encerrada', async () => {
+    const eq = await prisma.equipment.update({
+      where: { id: (await createEquipment()).id },
+      data: { createdAt: daysFromNow(-30) },
+    });
+    await prisma.downtime.create({
+      data: { equipmentId: eq.id, startedAt: daysFromNow(-10), endedAt: daysFromNow(-8), cause: 'MECHANICAL', description: 'a' },
+    });
+
+    await expect(
+      service.create({ equipmentId: eq.id, cause: 'OTHER', description: 'b', startedAt: daysFromNow(-9).toISOString() }),
+    ).rejects.toThrow('sobrepõe');
+    await expect(
+      service.create({ equipmentId: eq.id, cause: 'OTHER', description: 'c', startedAt: daysFromNow(-40).toISOString() }),
+    ).rejects.toThrow('cadastro do equipamento');
+    await expect(
+      service.create({ equipmentId: eq.id, cause: 'OTHER', description: 'd', startedAt: daysFromNow(-5).toISOString() }),
+    ).resolves.toBeDefined();
+  });
+
   it('filtra por em andamento, equipamento e período (sobreposição)', async () => {
     const eq1 = await createEquipment({ name: 'Eq1' });
     const eq2 = await createEquipment({ name: 'Eq2' });

@@ -18,7 +18,9 @@ export class HttpExceptionFilter implements ExceptionFilter {
     const request = ctx.getRequest<Request>();
 
     let status = HttpStatus.INTERNAL_SERVER_ERROR;
-    let message: string | object = 'Internal server error';
+    // Erros não-HTTP (Prisma, bugs) só vão para o log: a mensagem deles expõe
+    // consultas SQL e caminhos internos do servidor
+    let message: string | object = 'Erro interno do servidor';
 
     if (exception instanceof HttpException) {
       status = exception.getStatus();
@@ -26,8 +28,6 @@ export class HttpExceptionFilter implements ExceptionFilter {
       message = typeof exceptionResponse === 'string'
         ? exceptionResponse
         : (exceptionResponse as any).message || exceptionResponse;
-    } else if (exception instanceof Error) {
-      message = exception.message;
     }
 
     const errorResponse = {

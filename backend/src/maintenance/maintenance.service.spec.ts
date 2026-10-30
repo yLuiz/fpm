@@ -22,7 +22,8 @@ function buildService(overrides: { maintenance?: any; updateCount?: number; freq
           kind: 'PREVENTIVE',
           status: 'SCHEDULED',
           dueDate: new Date('2026-01-10T12:00:00Z'),
-          equipment: { id: 'e1', type: 'MOTOR', criticality: 'MEDIUM' },
+          createdAt: new Date('2025-12-01T00:00:00Z'),
+          equipment: { id: 'e1', type: 'MOTOR', criticality: 'MEDIUM', status: 'ACTIVE' },
         }
       : overrides.maintenance;
 
@@ -66,7 +67,9 @@ describe('MaintenanceService.complete', () => {
       );
     });
 
-    it('item Não OK abre corretiva com prazo pela criticidade e vínculo de origem', async () => {
+    it('item Não OK abre corretiva com prazo pela criticidade, contado do registro (D3)', async () => {
+      // inspeção feita em 10/01 e lançada no sistema em 12/01
+      jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate'] }).setSystemTime(new Date('2026-01-12T08:00:00Z'));
       const { service, tx } = buildService();
 
       const result = await service.complete('m1', {
@@ -81,8 +84,9 @@ describe('MaintenanceService.complete', () => {
         equipmentId: 'e1',
       });
       expect(result.corrective?.description).toContain('Ruído ok: Ruído no rolamento');
-      // criticidade MEDIUM = 3 dias
-      expect(result.corrective?.dueDate.toISOString()).toBe('2026-01-13T10:00:00.000Z');
+      // criticidade MEDIUM = 3 dias a partir do registro, não da conclusão informada
+      expect(result.corrective?.dueDate.toISOString()).toBe('2026-01-15T08:00:00.000Z');
+      jest.useRealTimers();
     });
 
     it('rejeita checklist incompleto sem abrir transação', async () => {
@@ -100,7 +104,8 @@ describe('MaintenanceService.complete', () => {
       equipmentId: 'e1',
       kind: 'CORRECTIVE',
       status: 'SCHEDULED',
-      equipment: { id: 'e1', type: 'MOTOR', criticality: 'HIGH' },
+      createdAt: new Date('2025-12-01T00:00:00Z'),
+      equipment: { id: 'e1', type: 'MOTOR', criticality: 'HIGH', status: 'ACTIVE' },
     };
 
     it('exige a solução aplicada', async () => {
@@ -120,6 +125,31 @@ describe('MaintenanceService.complete', () => {
       expect(result.next).toBeNull();
       expect(tx.maintenance.updateMany.mock.calls[0][0].data.observations).toBe('Rolamento trocado');
     });
+  });
+
+  it('rejeita conclusão em equipamento inativo (409)', async () => {
+    const { service, prisma } = buildService({
+      maintenance: {
+        id: 'm1', kind: 'PREVENTIVE', status: 'SCHEDULED', createdAt: new Date('2025-12-01T00:00:00Z'),
+        equipment: { type: 'MOTOR', criticality: 'MEDIUM', status: 'INACTIVE' },
+      },
+    });
+    await expect(service.complete('m1', { checklist: ALL_OK } as any)).rejects.toBeInstanceOf(
+      ConflictException,
+    );
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it('rejeita data de conclusão no futuro ou anterior à abertura (400)', async () => {
+    const { service, prisma } = buildService();
+    const future = new Date(Date.now() + 3600_000).toISOString();
+    await expect(
+      service.complete('m1', { concludedAt: future, checklist: ALL_OK } as any),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    await expect(
+      service.complete('m1', { concludedAt: '2025-11-01T00:00:00.000Z', checklist: ALL_OK } as any),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 
   it('rejeita com 409 manutenção já concluída', async () => {

@@ -17,7 +17,8 @@ describe('Conclusão de manutenção (integração com banco)', () => {
     const equipment = await createEquipment({ type: 'COMPRESSOR', criticality });
     await prisma.frequencySettings.create({ data: { equipmentType: 'COMPRESSOR', frequencyDays: 15 } });
     const m = await prisma.maintenance.create({
-      data: { equipmentId: equipment.id, dueDate: daysFromNow(1) },
+      // aberta antes das datas de conclusão usadas nos testes (conclusão anterior à abertura é recusada)
+      data: { equipmentId: equipment.id, dueDate: daysFromNow(1), createdAt: new Date('2026-01-01T00:00:00Z') },
     });
     return { equipment, m };
   }
@@ -58,7 +59,9 @@ describe('Conclusão de manutenção (integração com banco)', () => {
     });
     expect(saved).toMatchObject({ kind: 'CORRECTIVE', status: 'SCHEDULED', originId: m.id });
     expect(saved.description).toContain('Pressão ok: Pressão abaixo de 6 bar');
-    expect(saved.dueDate.toISOString()).toBe('2026-03-08T10:00:00.000Z'); // LOW = 7 dias
+    // LOW = 7 dias contados do registro no sistema (decisão D3), não da conclusão informada
+    const expected = Date.now() + 7 * 24 * 3600_000;
+    expect(Math.abs(saved.dueDate.getTime() - expected)).toBeLessThan(60_000);
 
     const before = await prisma.maintenance.count({ where: { equipmentId: equipment.id } });
     const done = await service.complete(corrective!.id, { observations: 'Regulador ajustado' } as any);

@@ -9,6 +9,7 @@ import {
   UseGuards,
   Query,
   Request,
+  ParseEnumPipe,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -21,7 +22,9 @@ import { EquipmentService } from './equipment.service';
 import { CreateEquipmentDto } from './dto/create-equipment.dto';
 import { UpdateEquipmentDto } from './dto/update-equipment.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { EquipmentStatus } from '@prisma/client';
+import { EquipmentStatus, UserRole } from '@prisma/client';
+import { RolesGuard } from '../auth/roles.guard';
+import { Roles } from '../auth/roles.decorator';
 
 @ApiTags('equipment')
 @ApiBearerAuth()
@@ -31,9 +34,12 @@ export class EquipmentController {
   constructor(private readonly equipmentService: EquipmentService) {}
 
   @Post()
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN) // gerenciar equipamentos é só do administrador (decisão D1)
   @ApiOperation({ summary: 'Criar novo equipamento' })
   @ApiResponse({ status: 201, description: 'Equipamento criado com sucesso' })
   @ApiResponse({ status: 400, description: 'Dados inválidos' })
+  @ApiResponse({ status: 403, description: 'Acesso negado - somente admin' })
   create(@Body() createEquipmentDto: CreateEquipmentDto, @Request() req: any) {
     return this.equipmentService.create(createEquipmentDto, req.user?.sub);
   }
@@ -42,7 +48,7 @@ export class EquipmentController {
   @ApiOperation({ summary: 'Listar todos os equipamentos' })
   @ApiQuery({ name: 'status', required: false, enum: EquipmentStatus })
   @ApiResponse({ status: 200, description: 'Lista de equipamentos' })
-  findAll(@Query('status') status?: EquipmentStatus) {
+  findAll(@Query('status', new ParseEnumPipe(EquipmentStatus, { optional: true })) status?: EquipmentStatus) {
     return this.equipmentService.findAll(status);
   }
 
@@ -55,6 +61,8 @@ export class EquipmentController {
   }
 
   @Patch(':id')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN) // gerenciar equipamentos é só do administrador (decisão D1)
   @ApiOperation({ summary: 'Atualizar equipamento' })
   @ApiResponse({ status: 200, description: 'Equipamento atualizado' })
   @ApiResponse({ status: 404, description: 'Equipamento não encontrado' })
@@ -67,6 +75,8 @@ export class EquipmentController {
   }
 
   @Patch(':id/toggle-status')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN) // gerenciar equipamentos é só do administrador (decisão D1)
   @ApiOperation({ summary: 'Alternar status do equipamento (ativo/inativo)' })
   @ApiResponse({ status: 200, description: 'Status alterado' })
   @ApiResponse({ status: 404, description: 'Equipamento não encontrado' })
@@ -75,6 +85,8 @@ export class EquipmentController {
   }
 
   @Delete(':id')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN) // gerenciar equipamentos é só do administrador (decisão D1)
   @ApiOperation({ summary: 'Remover equipamento (soft delete)' })
   @ApiResponse({ status: 200, description: 'Equipamento removido' })
   @ApiResponse({ status: 404, description: 'Equipamento não encontrado' })

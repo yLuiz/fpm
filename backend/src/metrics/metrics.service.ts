@@ -16,8 +16,10 @@ export class MetricsService {
   constructor(private prisma: PrismaService) {}
 
   private async load(period: Period) {
-    const equipmentFilter = { deletedAt: null };
-    const [preventives, downtimes, equipmentCount] = await Promise.all([
+    // Mesmo filtro em preventivas, paradas e horas disponíveis: inativos e excluídos
+    // saem de todos os lados da conta (antes a parada entrava e as horas não)
+    const equipmentFilter = { deletedAt: null, status: 'ACTIVE' as const };
+    const [preventives, downtimes, equipment] = await Promise.all([
       // Prazo no período (cumprimento) ou conclusão no período (atraso médio)
       this.prisma.maintenance.findMany({
         where: {
@@ -40,9 +42,9 @@ export class MetricsService {
         },
         select: { startedAt: true, endedAt: true, preventiveOverdue: true },
       }),
-      this.prisma.equipment.count({ where: { ...equipmentFilter, status: 'ACTIVE' } }),
+      this.prisma.equipment.findMany({ where: equipmentFilter, select: { createdAt: true } }),
     ]);
-    return { preventives, downtimes, equipmentCount };
+    return { preventives, downtimes, equipment };
   }
 
   /** Indicadores do período (padrão: últimos 30 dias). */
@@ -56,14 +58,14 @@ export class MetricsService {
       throw new BadRequestException('O início do período deve ser anterior ao fim');
     }
 
-    const { preventives, downtimes, equipmentCount } = await this.load(period);
+    const { preventives, downtimes, equipment } = await this.load(period);
     return {
       from: period.from,
       to: period.to,
-      equipmentCount,
+      equipmentCount: equipment.length,
       compliance: compliance(preventives, period, now),
       avgDelayDays: averageDelayDays(preventives, period),
-      downtime: downtimeIndicators(downtimes, period, equipmentCount, now),
+      downtime: downtimeIndicators(downtimes, period, equipment, now),
     };
   }
 
@@ -72,11 +74,11 @@ export class MetricsService {
     const now = new Date();
     const series = lastMonths(months, now);
     const whole = { from: series[0].from, to: series[series.length - 1].to };
-    const { preventives, downtimes, equipmentCount } = await this.load(whole);
+    const { preventives, downtimes, equipment } = await this.load(whole);
 
     return series.map((month) => {
       const c = compliance(preventives, month, now);
-      const d = downtimeIndicators(downtimes, month, equipmentCount, now);
+      const d = downtimeIndicators(downtimes, month, equipment, now);
       return {
         month: month.key,
         label: month.label,

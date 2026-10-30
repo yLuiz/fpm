@@ -5,7 +5,9 @@ function build() {
   const prisma = {
     maintenance: { findMany: jest.fn().mockResolvedValue([]) },
     downtime: { findMany: jest.fn().mockResolvedValue([]) },
-    equipment: { count: jest.fn().mockResolvedValue(4) },
+    equipment: {
+      findMany: jest.fn().mockResolvedValue(Array.from({ length: 4 }, () => ({ createdAt: new Date('2020-01-01') }))),
+    },
   };
   return { service: new MetricsService(prisma as any), prisma };
 }
@@ -23,12 +25,16 @@ describe('MetricsService', () => {
     expect(result.equipmentCount).toBe(4);
     expect(result.compliance).toEqual({ due: 0, onTime: 0, rate: null });
     expect(result.downtime.availability).toBe(1);
-    // Só preventivas, de equipamentos não excluídos
+    // Só preventivas, de equipamentos ativos e não excluídos; o mesmo filtro nas paradas
+    // e nas horas disponíveis
+    const activeOnly = { deletedAt: null, status: 'ACTIVE' };
     expect(prisma.maintenance.findMany.mock.calls[0][0].where).toMatchObject({
       kind: 'PREVENTIVE',
       deletedAt: null,
-      equipment: { deletedAt: null },
+      equipment: activeOnly,
     });
+    expect(prisma.downtime.findMany.mock.calls[0][0].where.equipment).toEqual(activeOnly);
+    expect(prisma.equipment.findMany.mock.calls[0][0].where).toEqual(activeOnly);
   });
 
   it('summary recusa período invertido', async () => {

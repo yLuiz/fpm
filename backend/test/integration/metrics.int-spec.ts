@@ -13,6 +13,8 @@ describe('Indicadores (integração com banco)', () => {
     const b = await createEquipment({ name: 'B' });
     const inactive = await createEquipment({ name: 'Inativo' });
     await prisma.equipment.update({ where: { id: inactive.id }, data: { status: 'INACTIVE' } });
+    // cadastrados antes do período: as horas disponíveis contam a partir do cadastro
+    await prisma.equipment.updateMany({ data: { createdAt: daysFromNow(-60) } });
 
     const at = (days: number, hour: number) => {
       const d = daysFromNow(days);

@@ -19,6 +19,12 @@ import {
   validateChecklist,
 } from './checklist';
 
+/** Pendências (alertas e contagens) só de equipamentos ativos e não excluídos. */
+const ACTIVE_EQUIPMENT = { deletedAt: null, status: 'ACTIVE' as const };
+
+/** Tolerância para relógios levemente adiantados ao informar a conclusão. */
+const FUTURE_TOLERANCE_MS = 5 * 60 * 1000;
+
 @Injectable()
 export class MaintenanceService {
   constructor(
@@ -58,9 +64,7 @@ export class MaintenanceService {
           gte: today,
           lte: futureDate,
         },
-        equipment: {
-          deletedAt: null,
-        },
+        equipment: ACTIVE_EQUIPMENT,
       },
       include: {
         equipment: true,
@@ -82,9 +86,7 @@ export class MaintenanceService {
         dueDate: {
           lt: today,
         },
-        equipment: {
-          deletedAt: null,
-        },
+        equipment: ACTIVE_EQUIPMENT,
       },
       include: {
         equipment: true,
@@ -142,10 +144,22 @@ export class MaintenanceService {
     if (maintenance.status === 'DONE') {
       throw new ConflictException('Esta manutenção já foi concluída');
     }
+    if (maintenance.equipment.status !== 'ACTIVE') {
+      throw new ConflictException('Equipamento inativo: reative-o para registrar manutenção');
+    }
 
+    const registeredAt = new Date();
     const concludedAt = completeDto.concludedAt
       ? new Date(completeDto.concludedAt)
-      : new Date();
+      : registeredAt;
+    if (concludedAt.getTime() > registeredAt.getTime() + FUTURE_TOLERANCE_MS) {
+      throw new BadRequestException('A data de conclusão não pode estar no futuro');
+    }
+    // Tolerância de 1 min: o campo da tela não tem segundos, então uma manutenção aberta
+    // às 10:37:26 e concluída "às 10:37" no mesmo minuto não pode ser recusada
+    if (concludedAt.getTime() < maintenance.createdAt.getTime() - 60_000) {
+      throw new BadRequestException('A data de conclusão não pode ser anterior à abertura da manutenção');
+    }
     const observations = completeDto.observations?.trim() || undefined;
 
     let checklist: ReturnType<typeof validateChecklist> | undefined;
@@ -189,7 +203,9 @@ export class MaintenanceService {
                 equipmentId: maintenance.equipmentId,
                 kind: 'CORRECTIVE',
                 originId: id,
-                dueDate: correctiveDueDate(concludedAt, maintenance.equipment.criticality),
+                // Prazo conta do registro no sistema (decisão D3): uma inspeção lançada
+                // com atraso não gera corretiva que já nasce vencida
+                dueDate: correctiveDueDate(registeredAt, maintenance.equipment.criticality),
                 description: correctiveDescription(nok),
               },
             })
@@ -258,9 +274,7 @@ export class MaintenanceService {
           gte: today,
           lte: futureDate,
         },
-        equipment: {
-          deletedAt: null,
-        },
+        equipment: ACTIVE_EQUIPMENT,
       },
     });
   }
@@ -276,9 +290,7 @@ export class MaintenanceService {
         dueDate: {
           lt: today,
         },
-        equipment: {
-          deletedAt: null,
-        },
+        equipment: ACTIVE_EQUIPMENT,
       },
     });
   }
@@ -293,7 +305,7 @@ export class MaintenanceService {
           kind: 'CORRECTIVE',
           status: 'SCHEDULED',
           deletedAt: null,
-          equipment: { deletedAt: null },
+          equipment: ACTIVE_EQUIPMENT,
         },
       }),
     ]);

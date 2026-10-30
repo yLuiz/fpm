@@ -1,4 +1,4 @@
-import { Controller, Get, Put, Body, Param, UseGuards } from '@nestjs/common';
+import { Controller, Get, Put, Body, Param, UseGuards, ParseEnumPipe } from '@nestjs/common';
 import {
   ApiTags,
   ApiOperation,
@@ -33,7 +33,7 @@ export class SettingsController {
   @ApiResponse({ status: 200, description: 'Frequência atualizada' })
   @ApiResponse({ status: 403, description: 'Acesso negado - somente admin' })
   updateFrequency(
-    @Param('type') type: EquipmentType,
+    @Param('type', new ParseEnumPipe(EquipmentType)) type: EquipmentType,
     @Body() updateDto: UpdateFrequencyDto,
   ) {
     return this.settingsService.updateFrequency(type, updateDto);

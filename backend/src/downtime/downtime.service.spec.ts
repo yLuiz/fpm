@@ -1,12 +1,23 @@
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { DowntimeService } from './downtime.service';
 
-function build(opts: { equipment?: any; open?: any; preventives?: any[]; downtime?: any; updateCount?: number } = {}) {
+function build(
+  opts: { equipment?: any; open?: any; overlap?: any; preventives?: any[]; downtime?: any; updateCount?: number } = {},
+) {
   const equipment =
-    opts.equipment === undefined ? { id: 'e1', criticality: 'MEDIUM', deletedAt: null } : opts.equipment;
+    opts.equipment === undefined
+      ? { id: 'e1', criticality: 'MEDIUM', status: 'ACTIVE', deletedAt: null, createdAt: new Date('2000-01-01') }
+      : opts.equipment;
   const tx = {
+    $queryRaw: jest.fn().mockResolvedValue([]),
     maintenance: { create: jest.fn().mockImplementation(({ data }) => ({ id: 'c1', ...data })) },
-    downtime: { create: jest.fn().mockImplementation(({ data }) => ({ id: 'd1', ...data })) },
+    downtime: {
+      // endedAt: null → parada em andamento; endedAt: { gt } → sobreposição com parada encerrada
+      findFirst: jest.fn().mockImplementation(({ where }) =>
+        Promise.resolve(where.endedAt === null ? (opts.open ?? null) : (opts.overlap ?? null)),
+      ),
+      create: jest.fn().mockImplementation(({ data }) => ({ id: 'd1', ...data })),
+    },
   };
   const prisma = {
     equipment: { findFirst: jest.fn().mockResolvedValue(equipment) },
@@ -43,20 +54,56 @@ describe('DowntimeService.create', () => {
     expect(tx.maintenance.create).not.toHaveBeenCalled();
   });
 
-  it('abre corretiva vinculada quando pedido', async () => {
+  it('abre corretiva vinculada quando pedido, com prazo contado do registro (D3)', async () => {
+    jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate'] }).setSystemTime(new Date('2026-01-12T08:00:00Z'));
     const { service, tx } = build();
     await service.create({ ...dto, openCorrective: true, startedAt: '2026-01-10T10:00:00.000Z' });
 
     const corrective = tx.maintenance.create.mock.calls[0][0].data;
     expect(corrective).toMatchObject({ kind: 'CORRECTIVE', description: 'Parada (mecânica): Travou' });
-    expect(corrective.dueDate.toISOString()).toBe('2026-01-13T10:00:00.000Z'); // MEDIUM = 3 dias
+    expect(corrective.dueDate.toISOString()).toBe('2026-01-15T08:00:00.000Z'); // MEDIUM = 3 dias do registro
+    jest.useRealTimers();
     expect(tx.downtime.create.mock.calls[0][0].data.correctiveId).toBe('c1');
   });
 
+  it('trava o equipamento antes de verificar a parada em andamento', async () => {
+    const { service, tx } = build();
+    await service.create(dto);
+    expect(tx.$queryRaw).toHaveBeenCalled();
+    expect(tx.$queryRaw.mock.invocationCallOrder[0]).toBeLessThan(
+      tx.downtime.findFirst.mock.invocationCallOrder[0],
+    );
+  });
+
   it('recusa segunda parada aberta no mesmo equipamento (409)', async () => {
-    const { service, prisma } = build({ open: { id: 'd0' } });
+    const { service, tx } = build({ open: { id: 'd0' } });
     await expect(service.create(dto)).rejects.toBeInstanceOf(ConflictException);
-    expect(prisma.$transaction).not.toHaveBeenCalled();
+    expect(tx.downtime.create).not.toHaveBeenCalled();
+  });
+
+  it('recusa início sobreposto a parada já encerrada (409)', async () => {
+    const { service, tx } = build({ overlap: { id: 'd0' } });
+    await expect(service.create({ ...dto, startedAt: '2026-01-10T10:00:00.000Z' })).rejects.toBeInstanceOf(
+      ConflictException,
+    );
+    expect(tx.downtime.create).not.toHaveBeenCalled();
+  });
+
+  it('recusa início anterior ao cadastro do equipamento (400)', async () => {
+    const { service } = build({
+      equipment: { id: 'e1', criticality: 'MEDIUM', status: 'ACTIVE', deletedAt: null, createdAt: new Date('2026-01-10') },
+    });
+    await expect(service.create({ ...dto, startedAt: '2026-01-01T10:00:00.000Z' })).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+  });
+
+  it('recusa parada em equipamento inativo (409)', async () => {
+    const { service, tx } = build({
+      equipment: { id: 'e1', criticality: 'MEDIUM', status: 'INACTIVE', deletedAt: null, createdAt: new Date('2000-01-01') },
+    });
+    await expect(service.create(dto)).rejects.toBeInstanceOf(ConflictException);
+    expect(tx.downtime.create).not.toHaveBeenCalled();
   });
 
   it('recusa início no futuro (400) e equipamento inexistente (404)', async () => {

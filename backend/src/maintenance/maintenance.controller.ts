@@ -9,6 +9,8 @@ import {
   ParseIntPipe,
   DefaultValuePipe,
   Request,
+  ParseEnumPipe,
+  BadRequestException,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -35,6 +37,9 @@ export class MaintenanceController {
   @ApiQuery({ name: 'days', required: false, type: Number, description: 'Dias para verificar (default: 3)' })
   @ApiResponse({ status: 200, description: 'Lista de manutenções a vencer' })
   findUpcoming(@Query('days', new DefaultValuePipe(3), ParseIntPipe) days: number) {
+    if (days < 0 || days > 365) {
+      throw new BadRequestException('days deve estar entre 0 e 365');
+    }
     return this.maintenanceService.findUpcoming(days);
   }
 
@@ -55,7 +60,7 @@ export class MaintenanceController {
   @Get('checklist/:type')
   @ApiOperation({ summary: 'Obter checklist por tipo de equipamento' })
   @ApiResponse({ status: 200, description: 'Checklist do tipo' })
-  getChecklist(@Param('type') type: EquipmentType) {
+  getChecklist(@Param('type', new ParseEnumPipe(EquipmentType)) type: EquipmentType) {
     return {
       type,
       items: CHECKLIST_BY_TYPE[type] || [],

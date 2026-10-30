@@ -1,4 +1,5 @@
 import {
+  availableMinutes,
   averageDelayDays,
   compliance,
   delayDays,
@@ -10,6 +11,8 @@ import {
 const d = (s: string) => new Date(s);
 const period = { from: d('2026-06-01T00:00:00'), to: d('2026-06-30T23:59:59.999') };
 const now = d('2026-07-10T12:00:00');
+/** n equipamentos cadastrados antes de qualquer período dos testes */
+const fleet = (n: number) => Array.from({ length: n }, () => ({ createdAt: d('2020-01-01T00:00:00') }));
 
 describe('compliance', () => {
   it('conta no prazo quem concluiu até o fim do dia do prazo', () => {
@@ -88,7 +91,7 @@ describe('paradas', () => {
         { startedAt: d('2026-06-05T08:00:00'), endedAt: d('2026-06-05T09:00:00'), preventiveOverdue: false }, // 60 min
       ],
       p,
-      2,
+      fleet(2),
       now,
     );
     expect(result).toEqual({
@@ -103,9 +106,18 @@ describe('paradas', () => {
   });
 
   it('sem paradas: MTBF e MTTR nulos, disponibilidade 100%; sem equipamentos: nulos', () => {
-    const none = downtimeIndicators([], period, 3, now);
+    const none = downtimeIndicators([], period, fleet(3), now);
     expect(none).toMatchObject({ count: 0, mttrMinutes: null, mtbfHours: null, availability: 1 });
-    expect(downtimeIndicators([], period, 0, now).availability).toBeNull();
+    expect(downtimeIndicators([], period, [], now).availability).toBeNull();
+  });
+
+  it('equipamento cadastrado no meio do período só conta a partir do cadastro', () => {
+    // 10 dias de período: um equipamento antigo (14.400 min) + um cadastrado no dia 6 (7.200 min)
+    const p = { from: d('2026-06-01T00:00:00'), to: d('2026-06-11T00:00:00') };
+    const equipment = [{ createdAt: d('2020-01-01T00:00:00') }, { createdAt: d('2026-06-06T00:00:00') }];
+    expect(availableMinutes(equipment, p, now)).toBe(21600);
+    // cadastrado depois do período não conta nada
+    expect(availableMinutes([{ createdAt: d('2026-07-01T00:00:00') }], p, now)).toBe(0);
   });
 });
 

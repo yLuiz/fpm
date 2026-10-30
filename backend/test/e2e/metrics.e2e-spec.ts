@@ -30,7 +30,11 @@ describe('Indicadores (e2e)', () => {
   });
 
   it('parada registrada pela API aparece nos indicadores', async () => {
-    const eq = await createEquipment();
+    // cadastrado antes da parada retroativa (parada anterior ao cadastro é recusada)
+    const eq = await prisma.equipment.update({
+      where: { id: (await createEquipment()).id },
+      data: { createdAt: daysFromNow(-10) },
+    });
     await prisma.maintenance.create({ data: { equipmentId: eq.id, dueDate: daysFromNow(-4) } });
 
     const d = await api()
