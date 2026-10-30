@@ -31,6 +31,7 @@ Como rodar o sistema: [README da raiz](../README.md).
 |---|---|---|
 | [plano-funcionalidades.md](plans/plano-funcionalidades.md) | Checklist com resultado → corretiva, paradas e indicadores, QR Code | Concluído |
 | [decisoes-funcionalidades.md](plans/decisoes-funcionalidades.md) | Decisões técnicas e premissas de domínio da execução do plano | Ativo |
+| [correcoes-revisao-2026-10-24.md](plans/correcoes-revisao-2026-10-24.md) | Correção dos problemas da revisão funcional de 2026-10-24 | Em andamento |
 | [frontend/REDESIGN-PLAN.md](../frontend/REDESIGN-PLAN.md) | Redesign do frontend (fica fora de `docs/` enquanto em execução) | Em andamento |
 
 ## design/ — padrão visual

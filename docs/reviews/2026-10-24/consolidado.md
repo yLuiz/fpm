@@ -2,15 +2,17 @@
 
 > **Objetivo:** lista única, por severidade, dos problemas que continuam abertos após a 1ª rodada de revisão (áreas A–F + revalidação).
 > **Categoria:** reviews · **Status:** Concluído
-> **Atualizado em:** 2026-10-24
+> **Atualizado em:** 2026-10-29
 > **Relacionados:** [Padrão de revisão](../../process/padrao-revisao-funcional.md) · [A](area-a-auth.md) · [B](area-b-equipamentos.md) · [C](area-c-manutencoes.md) · [D](area-d-dashboard-config.md) · [E](area-e-corretivas-paradas.md) · [F](area-f-indicadores-qr.md) · [Revalidação](revalidacao.md)
 
 ## Resumo
 
 | | Crítico | Alto | Médio | Baixo |
 |---|---|---|---|---|
-| **Abertos** | 0 | 2 | 9 | ~30 |
-| **Corrigidos após a revisão** | 1 | 1 | — | — |
+| **Abertos** | 0 | 0 | 0 | ~30 |
+| **Corrigidos após a revisão** | 1 | 3 | 9 | 1 (regressão da data vazia) |
+
+> **Atualização 2026-10-29:** críticos, altos e médios corrigidos; detalhes, decisões de domínio e testes em [correções da revisão](../../plans/correcoes-revisao-2026-10-24.md). Restam os itens baixos (bloco 4).
 
 - As áreas A, C e D foram revisadas antes da implementação do [plano de funcionalidades](../../plans/plano-funcionalidades.md) e **revalidadas** depois: dos 43 achados, 8 corrigidos, 29 persistem, 6 mudaram.
 - As áreas B, E e F foram revisadas já sobre o código final.
@@ -36,23 +38,23 @@
 
 | # | Problema | Onde | Origem |
 |---|---|---|---|
-| 2 | **Paradas simultâneas duplicadas:** 3 `POST /downtime` paralelos no mesmo equipamento abrem 3 paradas e 3 corretivas; horas contadas em dobro nos indicadores. | `backend/src/downtime/downtime.service.ts:41-46,55-79` | E |
-| 3 | **Limite de 5 logins/min não é aplicado** (`@Throttle({ default })` não existe entre os throttlers `short/medium/long`; login aceita 100/min). | `backend/src/auth/auth.controller.ts:15,29` · `backend/src/app.module.ts:28-47` | A2 |
+| 2 | ~~**Paradas simultâneas duplicadas:** 3 `POST /downtime` paralelos no mesmo equipamento abrem 3 paradas e 3 corretivas; horas contadas em dobro nos indicadores.~~ — **corrigido** (2026-10-29) | `backend/src/downtime/downtime.service.ts:41-46,55-79` | E |
+| 3 | ~~**Limite de 5 logins/min não é aplicado** (`@Throttle({ default })` não existe entre os throttlers `short/medium/long`; login aceita 100/min).~~ — **corrigido** (2026-10-29) | `backend/src/auth/auth.controller.ts:15,29` · `backend/src/app.module.ts:28-47` | A2 |
 | 4 | ~~**Frontend não usa o refresh token:** sessão cai a cada 15 min sem tentar renovar~~ — **corrigido**, ver "Correções após a revisão" | `frontend/src/services/api.ts` · `frontend/src/contexts/AuthContext.tsx` | A4 |
 
 ## Médio
 
 | # | Problema | Onde | Origem |
 |---|---|---|---|
-| 5 | **Equipamento inativo tratado de forma inconsistente:** continua em vencidas/a vencer e KPIs, é reagendado, aceita parada; nos indicadores a parada entra no numerador mas as horas saem do denominador. | `maintenance.service.ts:61-63,85-87,261-263,279-281` · `metrics.service.ts:19,34-43` · `downtime.service.ts:29-33` | C8, D1, B, E, F-02 |
-| 6 | **Indicadores do passado mudam com o cadastro de hoje:** MTBF/disponibilidade multiplicam o período pela quantidade *atual* de equipamentos ativos (agosto: 6193 h com 25 equip., 7929 h com 32; correto ≈ 2473 h). | `backend/src/metrics/metrics.service.ts:43` · `metrics.calc.ts:85` | F-01 |
-| 7 | **Paradas retroativas sem validação:** aceita parada sobreposta a outras encerradas e anterior à criação do equipamento; horas sobrepostas contam em dobro. | `downtime.service.ts:36-46` · `metrics.calc.ts:87` | E |
-| 8 | **Erros 500 expõem a query do Prisma e caminhos internos** (`?status=FOO`, `days=99999999999`, tipo inválido em configurações). | `common/filters/http-exception.filter.ts:29-30` · `equipment.controller.ts:45` · `maintenance.controller.ts:37` · `settings.controller.ts:36` | B, C9, D4 |
-| 9 | **Data de conclusão sem limites:** aceita anos futuros e passado arbitrário (corretiva concluída antes de ser criada). | `complete-maintenance.dto.ts:135-137` · `maintenance.service.ts:146-148` · `MaintenanceRegister.tsx:278-283` | C4, E |
-| 10 | **Dashboard sem estado de erro:** se uma chamada falha, todos os KPIs mostram 0 e as tabelas dizem "nenhuma", sem aviso. | `frontend/src/pages/Dashboard.tsx:131-153` | D3 |
-| 11 | **Erro 429 ou de rede aparece como "Email ou senha inválidos".** | `frontend/src/pages/Login.tsx:40-41` | A5 |
-| 12 | **Senha do admin exibida na tela de login.** | `frontend/src/pages/Login.tsx:96-99` | A6 |
-| 13 | **USER pode criar, editar, desativar e excluir equipamentos** (API e tela). Depende de decisão de domínio — ver abaixo. | `backend/src/equipment/equipment.controller.ts:28,77-83` · `EquipmentList.tsx` | B |
+| 5 | ~~**Equipamento inativo tratado de forma inconsistente:** continua em vencidas/a vencer e KPIs, é reagendado, aceita parada; nos indicadores a parada entra no numerador mas as horas saem do denominador.~~ — **corrigido** (2026-10-29) | `maintenance.service.ts:61-63,85-87,261-263,279-281` · `metrics.service.ts:19,34-43` · `downtime.service.ts:29-33` | C8, D1, B, E, F-02 |
+| 6 | ~~**Indicadores do passado mudam com o cadastro de hoje:** MTBF/disponibilidade multiplicam o período pela quantidade *atual* de equipamentos ativos (agosto: 6193 h com 25 equip., 7929 h com 32; correto ≈ 2473 h).~~ — **corrigido** (2026-10-29) | `backend/src/metrics/metrics.service.ts:43` · `metrics.calc.ts:85` | F-01 |
+| 7 | ~~**Paradas retroativas sem validação:** aceita parada sobreposta a outras encerradas e anterior à criação do equipamento; horas sobrepostas contam em dobro.~~ — **corrigido** (2026-10-29) | `downtime.service.ts:36-46` · `metrics.calc.ts:87` | E |
+| 8 | ~~**Erros 500 expõem a query do Prisma e caminhos internos** (`?status=FOO`, `days=99999999999`, tipo inválido em configurações).~~ — **corrigido** (2026-10-29) | `common/filters/http-exception.filter.ts:29-30` · `equipment.controller.ts:45` · `maintenance.controller.ts:37` · `settings.controller.ts:36` | B, C9, D4 |
+| 9 | ~~**Data de conclusão sem limites:** aceita anos futuros e passado arbitrário (corretiva concluída antes de ser criada).~~ — **corrigido** (2026-10-29) | `complete-maintenance.dto.ts:135-137` · `maintenance.service.ts:146-148` · `MaintenanceRegister.tsx:278-283` | C4, E |
+| 10 | ~~**Dashboard sem estado de erro:** se uma chamada falha, todos os KPIs mostram 0 e as tabelas dizem "nenhuma", sem aviso.~~ — **corrigido** (2026-10-29) | `frontend/src/pages/Dashboard.tsx:131-153` | D3 |
+| 11 | ~~**Erro 429 ou de rede aparece como "Email ou senha inválidos".**~~ — **corrigido** (2026-10-29) | `frontend/src/pages/Login.tsx:40-41` | A5 |
+| 12 | ~~**Senha do admin exibida na tela de login.**~~ — **corrigido** (2026-10-29) | `frontend/src/pages/Login.tsx:96-99` | A6 |
+| 13 | ~~**USER pode criar, editar, desativar e excluir equipamentos** (API e tela). Depende de decisão de domínio — ver abaixo.~~ — **corrigido** (2026-10-29) | `backend/src/equipment/equipment.controller.ts:28,77-83` · `EquipmentList.tsx` | B |
 
 ## Baixo
 
@@ -73,7 +75,7 @@
 | B | Editar ID inexistente mostra formulário em branco | `EquipmentForm.tsx:42-58` |
 | B | 390px: coluna "Ações" escondida na rolagem horizontal | `EquipmentList.tsx:137-209` |
 | C | Histórico ordenado por data prevista | `equipment.service.ts:79-81` |
-| C | **Regressão:** data de conclusão vazia falha em silêncio (`Invalid time value` fora do `try`) | `MaintenanceRegister.tsx:103,115` |
+| C | ~~**Regressão:** data de conclusão vazia falha em silêncio~~ — **corrigido** (2026-10-29) (`Invalid time value` fora do `try`) | `MaintenanceRegister.tsx:103,115` |
 | C | `checklist/FOO` → 200 vazio; `by-equipment/<inexistente>` → 200 `[]` | `maintenance.controller.ts:58-63,68-70` |
 | C | Executor não aparece no registro/histórico (só no audit log) | `EquipmentDetail.tsx` |
 | C | Checklist só aparece resumido ("3 OK"); sem visão item a item | `EquipmentDetail.tsx` |
