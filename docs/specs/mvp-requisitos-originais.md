@@ -1,3 +1,12 @@
+# Requisitos originais do MVP
+
+> **Objetivo:** registro dos requisitos (prompt original) que geraram o MVP do FPM. Mantido como referência histórica.
+> **Categoria:** specs · **Status:** Concluído
+> **Atualizado em:** 2026-01-09
+> **Relacionados:** [Plano de funcionalidades](../plans/plano-funcionalidades.md)
+
+---
+
 Você é o Claude Code e vai gerar um MVP completo (código + docs) de um sistema web chamado:
 
 “Factory Preventive Maintenance (FPM)”

@@ -12,9 +12,12 @@ Sistema de Manutenção Preventiva para Chão de Fábrica, focado em 5 tipos de 
 - Cadastro de equipamentos (com tipo, local, criticidade)
 - Configuração de frequência de manutenção por tipo (dias)
 - Geração automática de próximas manutenções (agenda)
-- Registro de execução de manutenção (com checklist e observações)
-- Listagem de manutenções "a vencer" e "vencidas"
-- Dashboard com indicadores básicos (KPIs)
+- Registro de execução de manutenção com checklist OK / Não OK / N.A.
+- Item "Não OK" abre ordem corretiva automaticamente (prazo pela criticidade)
+- Registro de paradas não planejadas (equipamento "Parado" em todas as telas)
+- Listagem de manutenções "a vencer" e "vencidas" (preventivas e corretivas)
+- Dashboard com abas **Operação** e **Indicadores** (cumprimento do plano, atraso médio, MTBF, MTTR, disponibilidade, paradas com/sem preventiva vencida)
+- Etiquetas com QR Code: o técnico escaneia no celular e cai direto na pendência do equipamento
 
 ## Stack Tecnológica
 
@@ -62,6 +65,23 @@ docker compose up --build
 **Usuário Admin:**
 - Email: `admin@fpm.com`
 - Senha: `admin123`
+
+**Usuário comum:** `user@fpm.com` / `user123`
+
+### Dados de demonstração
+
+O seed roda a cada start do backend, mas **só popula um banco vazio** (não apaga dados registrados).
+Ele gera 10 equipamentos com 6 meses de histórico (preventivas, corretivas e paradas). Para recriar tudo:
+
+```bash
+docker exec fpm-backend npx ts-node prisma/seed.ts --reset
+```
+
+### QR Code no celular
+
+`localhost` no celular aponta para o próprio aparelho. Para as etiquetas funcionarem, abra o sistema pelo
+IP da máquina na rede (ex.: `http://192.168.0.10:5173`) ou suba com `FPM_PUBLIC_URL=http://192.168.0.10:5173 docker compose up`.
+O frontend encontra a API no mesmo host, porta 3001.
 
 ## Execução Local (Desenvolvimento)
 
@@ -148,11 +168,44 @@ npm run dev
 | GET | `/maintenance/:id` | Buscar manutenção por ID |
 | POST | `/maintenance/:id/complete` | Concluir manutenção |
 
+`POST /maintenance/:id/complete` recebe o checklist como `[{ item, result: 'OK' | 'NOK' | 'NA', note? }]`
+(nota obrigatória no NOK) e devolve `{ maintenance, next, corrective }`. Corretiva exige `observations` (solução aplicada).
+
+### Paradas
+| Método | Endpoint | Descrição |
+|--------|----------|-----------|
+| POST | `/downtime` | Registrar parada (`openCorrective: true` abre corretiva) |
+| GET | `/downtime?open=&equipmentId=&from=&to=` | Listar paradas |
+| GET | `/downtime/:id` | Buscar parada |
+| PATCH | `/downtime/:id/close` | Encerrar parada |
+
+### Indicadores
+| Método | Endpoint | Descrição |
+|--------|----------|-----------|
+| GET | `/metrics/summary?from=&to=` | Cumprimento, atraso médio, MTBF, MTTR, disponibilidade (padrão: 30 dias) |
+| GET | `/metrics/monthly?months=6` | Série mensal de cumprimento e paradas |
+
 ### Configurações
 | Método | Endpoint | Descrição |
 |--------|----------|-----------|
 | GET | `/settings/frequency` | Listar frequências por tipo |
 | PUT | `/settings/frequency/:type` | Atualizar frequência (admin) |
+
+## Testes
+
+Requer o Postgres do docker compose rodando (os testes usam os bancos `fpm_test` e `fpm_e2e`, criados uma vez com
+`docker exec fpm-postgres psql -U fpm_user -d fpm_db -c "CREATE DATABASE fpm_test" -c "CREATE DATABASE fpm_e2e"`).
+
+| Onde | Comando | O que cobre |
+|---|---|---|
+| backend | `npm test` | Unitários (regras puras, services com Prisma mockado) |
+| backend | `npm run test:int` | Integração com banco real (`fpm_test`) |
+| backend | `npm run test:e2e` | API HTTP completa (supertest) |
+| backend | `npm run test:all` | Os três acima |
+| frontend | `npm test` | Unitários e integração (Vitest + Testing Library) |
+| frontend | `npm run test:e2e` | Navegador (Playwright): sobe backend e frontend próprios (portas 3101/5180, banco `fpm_e2e`) |
+
+Primeira vez no Playwright: `npx playwright install chromium`.
 
 ## Estrutura do Projeto
 

@@ -1,5 +1,10 @@
 # FPM - Factory Preventive Maintenance
 
+> **Objetivo:** apresentar o FPM como produto: problema, funcionalidades, impacto no negócio e implantação.
+> **Categoria:** product · **Status:** Ativo
+> **Atualizado em:** 2026-01-09
+> **Relacionados:** [Análise e pitch](../pitch/analise-e-pitch.md) · [Requisitos do MVP](../specs/mvp-requisitos-originais.md)
+
 ## Sistema de Manutenção Preventiva para Chão de Fábrica
 
 ---

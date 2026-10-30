@@ -1,5 +1,10 @@
 # Melhorias para Tornar o FPM Mais Robusto
 
+> **Objetivo:** backlog de melhorias técnicas (segurança, banco, observabilidade, qualidade).
+> **Categoria:** technical · **Status:** Ativo — parcialmente atendido (refresh token, rate limiting, Helmet, índices e audit log já existem no código)
+> **Atualizado em:** 2026-10-24
+> **Relacionados:** [Guia de evolução técnica](guia-evolucao-tecnica.md)
+
 ## Prioridade Alta (Essencial para Produção)
 
 ### 1. Segurança

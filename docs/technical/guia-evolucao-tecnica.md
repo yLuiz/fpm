@@ -1,5 +1,10 @@
 # FPM - Guia de Evolucao Tecnica
 
+> **Objetivo:** aplicar DDD, CI/CD, Kubernetes e AWS ao FPM de forma prática e incremental.
+> **Categoria:** technical · **Status:** Ativo
+> **Atualizado em:** 2026-03-20
+> **Relacionados:** [Melhorias de robustez](melhorias-robustez.md)
+
 ## Objetivo
 
 Aplicar **Kubernetes, AWS, DDD e CI/CD** ao projeto FPM de forma pratica e incremental.

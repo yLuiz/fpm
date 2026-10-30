@@ -1,5 +1,10 @@
 # FPM - Análise do Projeto, Melhorias e Pitch
 
+> **Objetivo:** análise do projeto, textos do pitch (elevator pitch) e roteiro original do deck.
+> **Categoria:** pitch · **Status:** Ativo
+> **Atualizado em:** 2026-03-20
+> **Relacionados:** [Deck do pitch](fpm-pitch.pptx) · [Apresentação do produto](../product/apresentacao-do-produto.md)
+
 ## Sumario
 
 - [1. O que e o projeto](#1-o-que-e-o-projeto)
